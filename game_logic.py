@@ -12,7 +12,7 @@ OBSTACLE_WIDTH_MAX = 100
 OBSTACLE_HEIGHT_MIN = 50
 OBSTACLE_HEIGHT_MAX = 300
 
-PLAYER_RADIUS = 10
+PLAYER_RADIUS = 15
 
 BG_COLOR = (200, 200, 200)
 BASE_COLOR = (0, 0, 0)
@@ -22,6 +22,7 @@ PLAYER_COLOR = (128, 128, 128)
 OBSTACLE_SPEED = 5
 GRAVITY = 0.5
 JUMP_FORCE = -10
+RESET_TIMER = 1 # temporary reset delay after collision (seconds)
 
 
 class Player:
@@ -39,6 +40,7 @@ class Player:
     def update(self):
         self.gravity()
         self.y += self.vy
+            
 
     def gravity(self):
         if self.y >= HEIGHT - BASE_HEIGHT - self.radius and self.vy >= 0: # if player near (or under) ground while having downward or no velocity, terminate jump and reset player to ground level with zero velocity
@@ -50,7 +52,7 @@ class Player:
 
     def jump(self):
         self.is_jumping = True
-        self.vy = JUMP_FORCE 
+        self.vy = JUMP_FORCE
 
     def is_colliding(self, obstacle):
         dx = self.x - max(obstacle.x, min(self.x, obstacle.x + obstacle.width)) # a smart way to get the nearest x-coordinate of the obstacle to the player's center
@@ -71,8 +73,13 @@ class Obstacle:
 
     def update(self):
         if self.x + self.width <= 0:
-                self.__init__()
+                self.__init__() # this might be bad practice
         self.x -= OBSTACLE_SPEED
+
+
+def reset_game(player, obstacle):
+    player.__init__()
+    obstacle.__init__()
 
 
 def run_game():
@@ -108,8 +115,10 @@ def run_game():
             obstacle.update()
             
             # Handle collision event
-            if player.is_colliding(obstacle=obstacle):
-                game_paused = True # TBD: Replace with game reset after small pause (e.g. with time.sleep())
+            if player.is_colliding(obstacle):
+                time.sleep(RESET_TIMER)
+                reset_game(player, obstacle)
+
 
             # Draw objects
             player.draw(screen)
@@ -133,6 +142,6 @@ TBD:
 - Add reset game function: Sets the player and object back to the starting position 
 - Add option to have multiple players spawn (for now at same starting position)
 - Implement the genetic algorithm into the game:
-    - Think about the parameters in the game that translate into genes for the GA, such as jumping 
+    - Think about the parameters in the game that translate into genes for the GA, such as jump timing, jump count, distance to obstacle before jump, height above obstacle before jump, ... 
     - Think about how to translate player performance into a fitness function (potentially maximizing distance travelled/time alive/obstacles avoided)
 """

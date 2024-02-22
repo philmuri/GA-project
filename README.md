@@ -31,3 +31,13 @@ The following is a roadmap of steps to be taken for creating the game:
      - Reaching goal point / number of succesful jumps (if multiple    obstacles)
    - Evolve population of candidate solutions (characters) over multiple generations and optimize performance based on fitness function
    - Evaluate best performing candidates in game environment and deploy for  gameplay
+
+## Workflow for the GA part
+I have summarizes the steps involved in the training part to give an overview of the workflow:
+1. Define GA parameters and create fitness function
+2. Chromosomes: Representation of player behavior. Specifically, these include ... ?
+3. Initialize player population with random chromosomes
+4. `pygad` evolves population through generations by evaluating fitness value of each player based on how far they get, and parents are selected for reproduction based on fitness
+5. Genetic operators (crossover, mutation) are applied for offspring
+6. New generation: Replace old population with offsprings and potentially keep some parents
+7. Back to step 4
