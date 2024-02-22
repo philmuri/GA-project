@@ -6,14 +6,15 @@ import pygad
 
 # Constants
 WIDTH, HEIGHT = 800, 600
-BASE_HEIGHT = 100
+BASE_HEIGHT = 50
 
-OBSTACLE_WIDTH_MIN = 25
-OBSTACLE_WIDTH_MAX = 100
+OBSTACLE_WIDTH_MIN = 50
+OBSTACLE_WIDTH_MAX = 200
 OBSTACLE_HEIGHT_MIN = 50
 OBSTACLE_HEIGHT_MAX = 300
 
-PLAYER_RADIUS = 15
+PLAYER_RADIUS = 10
+POPULATION_SIZE = 10
 
 BG_COLOR = (200, 200, 200)
 BASE_COLOR = (0, 0, 0)
@@ -27,14 +28,14 @@ RESET_TIMER = 1 # temporary reset delay after collision (seconds)
 
 
 class Player:
-    def __init__(self):
+    def __init__(self, genes):
         self.radius = PLAYER_RADIUS
         self.x = 40
         self.y = HEIGHT - BASE_HEIGHT - self.radius
         self.vy = 0
         self.is_jumping = False
         self.color = PLAYER_COLOR
-        self.chromosome = [np.random.randint(50, 200), np.random.randint(50, 200)]
+        self.genes = genes
         """
         {
             'min_dx_obstacle': np.random.randint(50, 200), # minimum player-obstacle distance before jump
@@ -66,19 +67,20 @@ class Player:
         dx = self.x - max(obstacle.x, min(self.x, obstacle.x + obstacle.width)) # a smart way to get the nearest x-coordinate of the obstacle to the player's center
         dy = self.y - max(obstacle.y, min(self.y, obstacle.y + obstacle.height))
         dist = dx**2 + dy**2
-        return dist < self.radius**2
-        # TBD: Add a roof that can also be collided with. Only need to track y-distance for this
+        return dist < self.radius**2 or self.y <= BASE_HEIGHT # also handles roof collision
     
     def update_GA(self, obstacle):
         self.gravity()
         self.y += self.vy
-        if any(self.chromosome) and self.should_jump(obstacle): # for GA training only (if None, this is ignored)
-                self.jump()
+        if self.should_jump(obstacle):
+            self.jump()
     
     def should_jump(self, obstacle): # for GA training only
-        dx = self.x - max(obstacle.x, min(self.x, obstacle.x + obstacle.width))
-        dy = self.y - max(obstacle.y, min(self.y, obstacle.y + obstacle.height))
-        if dx == self.chromosome[0] or dy == self.chromosome[1]:
+        dist = obstacle.x - self.x # + when left of obstacle, - right when player center crossing obstacle
+        height_diff = self.y - obstacle.y # + when below obstacle, - when player center crossing above obstacle
+        if (dist + obstacle.width >= 0 and dist <= self.genes[0]): # player ignores current obstacle distance once the center passes its right side. player jumps before then only if also its distance to obstacle is less than the gene-specified value
+            return True
+        if (height_diff >= self.genes[1]): # if player is sufficiently below an obstacle, jump
             return True
         return False
 
@@ -99,55 +101,28 @@ class Obstacle:
         self.x -= OBSTACLE_SPEED
 
 
-# GENETIC ALGORITHM GAME
-def get_player_fitness(ga_instance, solution, solution_idx):
-    player = Player()
-    obstacle = Obstacle()
-    player.chromosome = solution
-
-    while not player.is_colliding(obstacle):
-        player.update_GA(obstacle)
-        obstacle.update()
-
-    fitness_value = player.x # for now, the only measure of fitness is the distance the player has traveled
-    return fitness_value
-
-
-def reset_game_ga(player, obstacle):
-    player.x = 40
-    player.y = HEIGHT - BASE_HEIGHT - player.radius
-    player.vy = 0
-    obstacle.__init__()
-
 
 def run_game_ga():
-    # Initialize game
-    pg.init()
-    clock = pg.time.Clock()
+    # -- Initialize game --
+    pg.init() 
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     pg.display.set_caption("Obstacle Jumping")
-
-    # PYGAD: Run simulations to evolve players
-    num_generations = 100
-    player_population_size = 10
-    num_parents_mating = 5
-
-    ga_instance = pygad.GA(num_generations=num_generations,
-                           fitness_func=get_player_fitness,
-                           sol_per_pop=player_population_size,
-                           num_parents_mating=num_parents_mating,
-                           num_genes=len(Player().chromosome),
-                           mutation_num_genes=1
-                           )
-
-    ga_instance.run() # run GA to evolve player through generations
-
-    best_solution, best_solution_fitness, solution_idx = ga_instance.best_solution()
-    best_player = Player()
+    clock = pg.time.Clock()
+    
+    # -- Initialize players and obstacles --
+    # - Populate the game with players
+    population = []
+    for _ in range(POPULATION_SIZE):
+        dist_threshold = np.random.randint(50, 100)
+        height_threshold = np.random.randint(50, 100)
+        genes = [dist_threshold, height_threshold]
+        player = Player(genes=genes)
+        population.append(player)
+    
+    # - Initialize obstacle
     obstacle = Obstacle()
-    best_player.chromosome = best_solution
 
-    # Run actual game
+    # -- Run game --
     game_running = True
     game_paused = False
     while game_running:
@@ -157,15 +132,21 @@ def run_game_ga():
 
         if not game_paused:
             screen.fill(BG_COLOR)
-            pg.draw.rect(screen, BASE_COLOR, (0, HEIGHT - BASE_HEIGHT, WIDTH, HEIGHT))
+            pg.draw.rect(screen, BASE_COLOR, (0, HEIGHT - BASE_HEIGHT, WIDTH, HEIGHT)) # Ground
+            pg.draw.rect(screen, BASE_COLOR, (0, 0, WIDTH, BASE_HEIGHT)) # Roof
 
-            best_player.update_GA(obstacle)
+            # - Update players and obstacle
+            for player in population:
+                player.update_GA(obstacle)
             obstacle.update()
 
-            if best_player.is_colliding(obstacle=obstacle):
-                reset_game_ga(best_player, obstacle)
+            for player in population:
+                if player.is_colliding(obstacle=obstacle):
+                    game_paused = True
 
-            best_player.draw(screen)
+            # TBD: Handle removal of collided players and reset game when all players have collided
+            for player in population:
+                player.draw(screen)
             obstacle.draw(screen)
 
             pg.display.flip()
@@ -239,9 +220,12 @@ if __name__ == '__main__':
 
 """
 TBD:
+- Make jump force another gene to be evolved by genetic algorithm
+- Put a lower limit on jump rate
+- Handle multiple players: Continue game even if one collides, end game only when all collidedd
 - Add reset game function: Sets the player and object back to the starting position 
 - Add option to have multiple players spawn (for now at same starting position)
-- Implement the genetic algorithm into the game:
+- Implement the genetic algorithm into the game: --> Start by implementing from GA from scratch?
     - Think about the parameters in the game that translate into genes for the GA, such as jump timing, jump count, distance to obstacle before jump, height above obstacle before jump, ... 
     - Think about how to translate player performance into a fitness function (potentially maximizing distance travelled/time alive/obstacles avoided)
 """
