@@ -6,25 +6,32 @@ import sys
 # Constants
 WIDTH, HEIGHT = 800, 600
 BASE_HEIGHT = 100
-OBSTACLE_WIDTH = 25
-OBSTACLE_HEIGHT = 200
+
+OBSTACLE_WIDTH_MIN = 25
+OBSTACLE_WIDTH_MAX = 100
+OBSTACLE_HEIGHT_MIN = 50
+OBSTACLE_HEIGHT_MAX = 300
+
+PLAYER_RADIUS = 10
+
 BG_COLOR = (200, 200, 200)
 BASE_COLOR = (0, 0, 0)
 OBSTACLE_COLOR = (0, 0, 0)
+PLAYER_COLOR = (128, 128, 128)
 
-GAME_SPEED = 5
-GRAVITY = 1
+OBSTACLE_SPEED = 5
+GRAVITY = 0.5
 JUMP_FORCE = -10
 
 
 class Player:
-    def __init__(self): # Initialize character
-        self.radius = 20
+    def __init__(self):
+        self.radius = PLAYER_RADIUS
         self.x = 40
         self.y = HEIGHT - BASE_HEIGHT - self.radius
         self.vy = 0
         self.is_jumping = False
-        self.color = (0, 0, 255)
+        self.color = PLAYER_COLOR
     
     def draw(self):
         pg.draw.circle(screen, self.color, (self.x, self.y), self.radius)
@@ -48,30 +55,34 @@ class Player:
     def is_colliding(self, obstacle):
         dx = self.x - max(obstacle.x, min(self.x, obstacle.x + obstacle.width)) # a smart way to get the nearest x-coordinate of the obstacle to the player's center
         dy = self.y - max(obstacle.y, min(self.y, obstacle.y + obstacle.height))
-        dist = dx**2 + dy**2 # squared distance
-        return dist < self.radius**2 # objects colliding if squared distance smaller than radius squared
+        dist = dx**2 + dy**2
+        return dist < self.radius**2
 
 
 class Obstacle:
-    def __init__(self, height): # obstacle height will be randomized
-        self.width = OBSTACLE_WIDTH
-        self.height = height
+    def __init__(self): # obstacle height will be randomized
+        self.width = np.random.randint(OBSTACLE_WIDTH_MIN, OBSTACLE_WIDTH_MAX)
+        self.height = np.random.randint(OBSTACLE_HEIGHT_MIN, OBSTACLE_HEIGHT_MAX)
         self.x = WIDTH
         self.y = HEIGHT - BASE_HEIGHT - self.height
 
     def draw(self):
         pg.draw.rect(screen, OBSTACLE_COLOR, (self.x, self.y, self.width, self.height))
 
+    def update(self):
+        if self.x + self.width <= 0:
+                self.__init__()
+        self.x -= OBSTACLE_SPEED
+
 
 
 if __name__ == '__main__':
+    
     # Initialize game
     pg.init()
     clock = pg.time.Clock()
-
     player = Player()
-    obstacle = Obstacle(height=OBSTACLE_HEIGHT)
-
+    obstacle = Obstacle()
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     pg.display.set_caption("Obstacle Jumping")
 
@@ -96,10 +107,7 @@ if __name__ == '__main__':
 
             # Update game objects: update player position, update obstacle position
             player.update()
-            # TBD: introduce as new obstacle method update(self)
-            if obstacle.x < -OBSTACLE_WIDTH:
-                obstacle.x = WIDTH # set obstacle back to the right
-            obstacle.x -= GAME_SPEED # TBD: replace with obstacle.vx
+            obstacle.update()
             
             # Handle collision event
             if player.is_colliding(obstacle=obstacle):
