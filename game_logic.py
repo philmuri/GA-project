@@ -33,7 +33,7 @@ class Player:
         self.is_jumping = False
         self.color = PLAYER_COLOR
     
-    def draw(self):
+    def draw(self, screen):
         pg.draw.circle(screen, self.color, (self.x, self.y), self.radius)
 
     def update(self):
@@ -66,7 +66,7 @@ class Obstacle:
         self.x = WIDTH
         self.y = HEIGHT - BASE_HEIGHT - self.height
 
-    def draw(self):
+    def draw(self, screen):
         pg.draw.rect(screen, OBSTACLE_COLOR, (self.x, self.y, self.width, self.height))
 
     def update(self):
@@ -75,9 +75,7 @@ class Obstacle:
         self.x -= OBSTACLE_SPEED
 
 
-
-if __name__ == '__main__':
-    
+def run_game():
     # Initialize game
     pg.init()
     clock = pg.time.Clock()
@@ -114,8 +112,8 @@ if __name__ == '__main__':
                 game_paused = True # TBD: Replace with game reset after small pause (e.g. with time.sleep())
 
             # Draw objects
-            player.draw()
-            obstacle.draw()
+            player.draw(screen)
+            obstacle.draw(screen)
 
             pg.display.flip() # update screen display
 
@@ -124,11 +122,17 @@ if __name__ == '__main__':
     pg.quit()
     sys.exit()
 
-    """
-    TBD:
-    - Add reset game function: Sets the player and object back to the starting position 
-    - Add option to have multiple players spawn (for now at same starting position)
-    - Implement the genetic algorithm into the game:
-        - Think about the parameters in the game that translate into genes for the GA, such as jumping 
-        - Think about how to translate player performance into a fitness function (potentially maximizing distance travelled/time alive/obstacles avoided)
-    """
+
+
+if __name__ == '__main__':
+    run_game()
+
+
+"""
+TBD:
+- Add reset game function: Sets the player and object back to the starting position 
+- Add option to have multiple players spawn (for now at same starting position)
+- Implement the genetic algorithm into the game:
+    - Think about the parameters in the game that translate into genes for the GA, such as jumping 
+    - Think about how to translate player performance into a fitness function (potentially maximizing distance travelled/time alive/obstacles avoided)
+"""

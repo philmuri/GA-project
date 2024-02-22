@@ -25,9 +25,9 @@ The following is a roadmap of steps to be taken for creating the game:
    - Character jump and motion
 3. Genetic algorithm:
    - Define **genome representation**: Parameters controlling the jump
-   - Define **fitness function**: Parameters determining character    performance
+   - Define **fitness function**: Parameters determining character performance
      - Distance traveled
      - Speed at which other side is reached
      - Reaching goal point / number of succesful jumps (if multiple    obstacles)
-   - Evolve population of candidate solutions (characters) over multiple    generations and optimize performance based on fitness function
-   - Evaluate best performing candidates in game environment and deploy   for  gameplay
+   - Evolve population of candidate solutions (characters) over multiple generations and optimize performance based on fitness function
+   - Evaluate best performing candidates in game environment and deploy for  gameplay
