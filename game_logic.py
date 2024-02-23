@@ -48,7 +48,7 @@ class Player:
         Draw the player in its current position or according to an animation.
         """
         if self.is_animating:
-            self.animation(screen) # separte draw animation
+            self.animation(screen) # separate draw animation
         else:
             pg.draw.circle(screen, color, (self.x, self.y), self.radius)
 
@@ -63,7 +63,7 @@ class Player:
             self.gravity()
             self.y += self.vy
             if self.genes and self.should_jump(obstacle):
-                self.jump() # ADD: Delay
+                self.jump()
 
     def gravity(self):
         """
@@ -79,6 +79,7 @@ class Player:
     def jump(self):
         """
         Jump event for player.
+        TBD: Delay, possibly using ratelimit library
         """
         self.is_jumping = True
         self.vy = JUMP_FORCE
@@ -113,17 +114,15 @@ class Player:
         Also sets the animation_start_time to be used by the animation() method for animation duration measurement.
         """
         time_alive = time.time() - self.init_time
-
         self.is_animating = True
         self.animation_start_time = time.time()
-
         return time_alive
 
     def animation(self, screen):
         """
         Draw animation on player death. Called by draw() if is_animating is True.
         """
-        duration = 2.0
+        duration = (self.x + self.radius) / OBSTACLE_SPEED
         if time.time() - self.animation_start_time >= duration:
             self.is_animating = False
         else:
@@ -190,14 +189,22 @@ def run_game_ga():
                 player.update(obstacle)
             obstacle.update()
             # - Handle player-obstacle collision events
+            population_dead = []
             for player in population:
                 if player.is_colliding(obstacle=obstacle):
+                    print("is_animating: ", player.is_animating)
                     time_alive = player.kill()
-                    #population.remove(player)
+                    population_dead.append(player)
             # - Redraw players and obstacle
             for player in population:
                 player.draw(screen, player.color)
             obstacle.draw(screen)
+            # - Handle case when all players are dead
+            for player in population_dead:
+                if not player.is_animating:
+                    population.remove(player)
+            if not population:
+                game_paused = True
 
             pg.display.flip()
 
@@ -252,7 +259,6 @@ def run_game():
                 time.sleep(RESET_TIMER)
                 reset_game(player, obstacle)
 
-
             # Draw objects
             player.draw(screen)
             obstacle.draw(screen)
@@ -273,8 +279,7 @@ if __name__ == '__main__':
 """
 TBD:
 - Make jump force another gene to be evolved by genetic algorithm
-- Put a lower limit on jump rate
-- Handle multiple players: Continue game even if one collides, end game only when all collidedd
+- (maybe not) Put a lower limit on jump rate 
 - Add reset game function: Sets the player and object back to the starting position 
 - Add option to have multiple players spawn (for now at same starting position)
 - Implement the genetic algorithm into the game: --> Start by implementing from GA from scratch?
