@@ -39,8 +39,10 @@ class Player:
         self.y = HEIGHT - BASE_HEIGHT - self.radius
         self.vy = 0
         self.is_jumping = False
+        self.jump_cooldown = 0.5
+        self.last_jump_time = 0
         self.color = PLAYER_COLOR
-        self.genes = []
+        self.genes = genes
         self.time_alive = 0
         self.init_time = time.time()
         self.is_animating = False
@@ -68,7 +70,11 @@ class Player:
             self.gravity()
             self.y += self.vy
             if self.genes and self.should_jump(obstacle):
-                self.jump()
+                current_time = time.time()
+                if current_time - self.last_jump_time >= self.jump_cooldown or self.last_jump_time == 0:
+                    self.jump()
+                    self.last_jump_time = time.time()
+
 
     def gravity(self):
         """
@@ -227,11 +233,11 @@ def run_game_ga():
                 # apply random mutations too for variability
                 if np.random.rand() <= MUTATION_RATE:
                     for player in population:
-                        player.genes += np.rand.randint(-10, 10) # TBD: the lower and upper limits should be constants with appropriate name
+                        #player.genes += np.random.randint(-10, 10) # TBD: the lower and upper limits should be constants with appropriate name
+                        pass
+                #reset_game_ga()
 
-                reset_game_ga()
-
-                game_paused = False
+                #game_paused = False
 
             pg.display.flip()
 
