@@ -4,7 +4,7 @@ import time
 import sys
 import pygad
 
-# Constants
+# Constants: Game
 WIDTH, HEIGHT = 800, 600
 BASE_HEIGHT = 50
 
@@ -15,7 +15,7 @@ OBSTACLE_HEIGHT_MAX = 300
 
 PLAYER_START_POSITION = 80
 PLAYER_RADIUS = 15
-POPULATION_SIZE = 10
+POPULATION_SIZE = 3
 
 BG_COLOR = (200, 200, 200)
 BASE_COLOR = (0, 0, 0)
@@ -28,19 +28,24 @@ GRAVITY = 0.5
 JUMP_FORCE = -10
 RESET_TIMER = 1 # temporary reset delay after collision (seconds)
 
+# Constants: Genetic Algorithm
+MUTATION_RATE = 0.5
+
 
 class Player:
-    def __init__(self, genes):
+    def __init__(self, genes=None):
         self.radius = PLAYER_RADIUS
         self.x = PLAYER_START_POSITION
         self.y = HEIGHT - BASE_HEIGHT - self.radius
         self.vy = 0
         self.is_jumping = False
         self.color = PLAYER_COLOR
-        self.genes = genes
+        self.genes = []
+        self.time_alive = 0
         self.init_time = time.time()
         self.is_animating = False
         self.animation_start_time = 0
+        self.is_dead = False
     
 
     def draw(self, screen, color):
@@ -113,10 +118,10 @@ class Player:
         Kill a player by toggling the is_animating flag to True, which subsequently disables its physics in the update() method and enables a death animation in draw().
         Also sets the animation_start_time to be used by the animation() method for animation duration measurement.
         """
-        time_alive = time.time() - self.init_time
+        self.time_alive = round(time.time() - self.init_time, 3)
+        self.is_dead = True
         self.is_animating = True
         self.animation_start_time = time.time()
-        return time_alive
 
     def animation(self, screen):
         """
@@ -146,6 +151,11 @@ class Obstacle:
         self.x -= OBSTACLE_SPEED
 
 
+def reset_game_ga(population, obstacle):
+    obstacle.__init__()
+    for player in population:
+        player.__init__() # DO NOT initialize genes, eevrything else yes. Ask ChatGPT how to re-initialize a charcaters attributes except 1
+
 
 def run_game_ga():
     # -- Initialize game --
@@ -155,7 +165,7 @@ def run_game_ga():
     clock = pg.time.Clock()
     
     # -- Initialize players and obstacles --
-    # - Populate the game with players
+    # - Populate the game with players and initialize their genes
     population = []
     for _ in range(POPULATION_SIZE):
         dist_threshold = np.random.randint(50, 100)
@@ -163,10 +173,9 @@ def run_game_ga():
         genes = [dist_threshold, height_threshold]
         player = Player(genes=genes)
         population.append(player)
-    
+
     # - Initialize obstacle
     obstacle = Obstacle()
-
 
     # -- Run game --
     game_running = True
@@ -189,22 +198,40 @@ def run_game_ga():
                 player.update(obstacle)
             obstacle.update()
             # - Handle player-obstacle collision events
-            population_dead = []
             for player in population:
-                if player.is_colliding(obstacle=obstacle):
-                    print("is_animating: ", player.is_animating)
-                    time_alive = player.kill()
-                    population_dead.append(player)
+                if not player.is_dead and player.is_colliding(obstacle=obstacle):
+                    player.kill()
+                    
             # - Redraw players and obstacle
             for player in population:
                 player.draw(screen, player.color)
             obstacle.draw(screen)
             # - Handle case when all players are dead
-            for player in population_dead:
-                if not player.is_animating:
-                    population.remove(player)
-            if not population:
+            if all(player.is_dead for player in population):
                 game_paused = True
+                
+                # GENETIC ALGORITHM: Evolve current generation and intialize new generation
+                """
+                0. Obtain best solutions from fitness function (here, time_alive)
+                1. Select parents (best solutions) as a fraction of the population
+                2. Create offspring by updating genes of the rest of the population 
+                3. Crossover
+                4. Mutation: Apply random mutations according to mutation rate to children
+                """
+                # for now, we only pass down the best players genes. Later will add option for more parents
+                best_solution = population[-1].time_alive
+                best_genes = population[-1].genes
+                for player in population:
+                    player.genes = best_genes
+
+                # apply random mutations too for variability
+                if np.random.rand() <= MUTATION_RATE:
+                    for player in population:
+                        player.genes += np.rand.randint(-10, 10) # TBD: the lower and upper limits should be constants with appropriate name
+
+                reset_game_ga()
+
+                game_paused = False
 
             pg.display.flip()
 
@@ -281,8 +308,8 @@ TBD:
 - Make jump force another gene to be evolved by genetic algorithm
 - (maybe not) Put a lower limit on jump rate 
 - Add reset game function: Sets the player and object back to the starting position 
-- Add option to have multiple players spawn (for now at same starting position)
 - Implement the genetic algorithm into the game: --> Start by implementing from GA from scratch?
-    - Think about the parameters in the game that translate into genes for the GA, such as jump timing, jump count, distance to obstacle before jump, height above obstacle before jump, ... 
-    - Think about how to translate player performance into a fitness function (potentially maximizing distance travelled/time alive/obstacles avoided)
+- Add a system that penalizes flying forever OR add a cooldown to jumping
+- Add some text in one of the game corners detailing the genetic algorithm status (generation, settings, current best time, ...)
+- Add a GUI for starting game and restarting game. Start game will show up when game is first booted, restart game will shwo up when population is dead (not for genetic algorith part though; here it will just reset() the game state with the improved player genes)
 """
