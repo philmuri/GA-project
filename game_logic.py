@@ -13,13 +13,15 @@ OBSTACLE_WIDTH_MAX = 200
 OBSTACLE_HEIGHT_MIN = 50
 OBSTACLE_HEIGHT_MAX = 300
 
-PLAYER_RADIUS = 10
+PLAYER_START_POSITION = 80
+PLAYER_RADIUS = 15
 POPULATION_SIZE = 10
 
 BG_COLOR = (200, 200, 200)
 BASE_COLOR = (0, 0, 0)
 OBSTACLE_COLOR = (0, 0, 0)
 PLAYER_COLOR = (128, 128, 128)
+PLAYER_DEATH_COLOR = (255, 0, 0)
 
 OBSTACLE_SPEED = 5
 GRAVITY = 0.5
@@ -30,29 +32,43 @@ RESET_TIMER = 1 # temporary reset delay after collision (seconds)
 class Player:
     def __init__(self, genes):
         self.radius = PLAYER_RADIUS
-        self.x = 40
+        self.x = PLAYER_START_POSITION
         self.y = HEIGHT - BASE_HEIGHT - self.radius
         self.vy = 0
         self.is_jumping = False
         self.color = PLAYER_COLOR
         self.genes = genes
-        """
-        {
-            'min_dx_obstacle': np.random.randint(50, 200), # minimum player-obstacle distance before jump
-            'min_dy_obstacle': np.random.randint(50, 200) # minimum player-obstacle height difference before jump
-        }
-        """
+        self.init_time = time.time()
+        self.is_animating = False
+        self.animation_start_time = 0
     
-    def draw(self, screen):
-        pg.draw.circle(screen, self.color, (self.x, self.y), self.radius)
+
+    def draw(self, screen, color):
+        """
+        Draw the player in its current position or according to an animation.
+        """
+        if self.is_animating:
+            self.animation(screen) # separte draw animation
+        else:
+            pg.draw.circle(screen, color, (self.x, self.y), self.radius)
 
     def update(self, obstacle=None):
-        self.gravity()
-        self.y += self.vy
-        if self.genes and self.should_jump(obstacle):
-            self.jump()
+        """
+        Handle player motion by updating the player y-position according to simple equation of motion.
+        Also handles genetic algorithm player motion by calling jump() when should_jump() is True.
+        """
+        if self.is_animating:
+            pass # disable physics on animating player
+        else:
+            self.gravity()
+            self.y += self.vy
+            if self.genes and self.should_jump(obstacle):
+                self.jump() # ADD: Delay
 
     def gravity(self):
+        """
+        Simulate game physics as a constant gravitational downforce and player and base interaction.
+        """
         if self.y >= HEIGHT - BASE_HEIGHT - self.radius and self.vy >= 0: # if player near (or under) ground while having downward or no velocity, terminate jump and reset player to ground level with zero velocity
             self.y = HEIGHT - BASE_HEIGHT - self.radius
             self.vy = 0
@@ -61,16 +77,28 @@ class Player:
             self.vy += GRAVITY   
 
     def jump(self):
+        """
+        Jump event for player.
+        """
         self.is_jumping = True
         self.vy = JUMP_FORCE
 
     def is_colliding(self, obstacle):
+        """
+        Handle collision events by evaluating player-obstacle Euclidean distance and player-roof distance.
+        Returns True if colliding.
+        """
         dx = self.x - max(obstacle.x, min(self.x, obstacle.x + obstacle.width)) # a smart way to get the nearest x-coordinate of the obstacle to the player's center
         dy = self.y - max(obstacle.y, min(self.y, obstacle.y + obstacle.height))
         dist = dx**2 + dy**2
         return dist < self.radius**2 or self.y <= BASE_HEIGHT # also handles roof collision
     
     def should_jump(self, obstacle): # for GA training only
+        """
+        Jump logic for genetic algorithm training, based on player proximity to obstacle in x and y direction (separately).
+        This introduces functionality to the genes in the player chromosome and is the basis for the evolution process.
+        (NOTE: for genetic algorithm part only)
+        """
         dist = obstacle.x - self.x # + when left of obstacle, - right when player center crossing obstacle
         height_diff = self.y - obstacle.y # + when below obstacle, - when player center crossing above obstacle
         if (dist + obstacle.width >= 0 and dist <= self.genes[0]): # player ignores current obstacle distance once the center passes its right side. player jumps before then only if also its distance to obstacle is less than the gene-specified value
@@ -78,6 +106,29 @@ class Player:
         if (height_diff >= self.genes[1]): # if player is sufficiently below an obstacle, jump
             return True
         return False
+    
+    def kill(self): # if kill is called, player object enters is_animating state and will cease to update() while draw() has a custom behavior (in this case moving with obstacle speed)
+        """
+        Kill a player by toggling the is_animating flag to True, which subsequently disables its physics in the update() method and enables a death animation in draw().
+        Also sets the animation_start_time to be used by the animation() method for animation duration measurement.
+        """
+        time_alive = time.time() - self.init_time
+
+        self.is_animating = True
+        self.animation_start_time = time.time()
+
+        return time_alive
+
+    def animation(self, screen):
+        """
+        Draw animation on player death. Called by draw() if is_animating is True.
+        """
+        duration = 2.0
+        if time.time() - self.animation_start_time >= duration:
+            self.is_animating = False
+        else:
+            self.x -= OBSTACLE_SPEED
+            pg.draw.circle(screen, PLAYER_DEATH_COLOR, (self.x, self.y), self.radius)
 
 
 class Obstacle:
@@ -92,7 +143,7 @@ class Obstacle:
 
     def update(self):
         if self.x + self.width <= 0:
-                self.__init__() # this might be bad practice
+            self.__init__() # this might be bad practice
         self.x -= OBSTACLE_SPEED
 
 
@@ -130,22 +181,22 @@ def run_game_ga():
                         game_paused = not game_paused
 
         if not game_paused:
+            # - Draw background, platform and roof
             screen.fill(BG_COLOR)
             pg.draw.rect(screen, BASE_COLOR, (0, HEIGHT - BASE_HEIGHT, WIDTH, HEIGHT)) # Ground
             pg.draw.rect(screen, BASE_COLOR, (0, 0, WIDTH, BASE_HEIGHT)) # Roof
-
             # - Update players and obstacle
             for player in population:
                 player.update(obstacle)
             obstacle.update()
-
+            # - Handle player-obstacle collision events
             for player in population:
                 if player.is_colliding(obstacle=obstacle):
-                    game_paused = True
-
-            # TBD: Handle removal of collided players and reset game when all players have collided
+                    time_alive = player.kill()
+                    #population.remove(player)
+            # - Redraw players and obstacle
             for player in population:
-                player.draw(screen)
+                player.draw(screen, player.color)
             obstacle.draw(screen)
 
             pg.display.flip()
