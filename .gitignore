@@ -4,3 +4,6 @@ __pycache__/
 build/
 dist/
 *.spec
+
+# data files stored as .txt (temporary solution)
+*.txt
