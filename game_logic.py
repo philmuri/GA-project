@@ -46,9 +46,11 @@ class Player:
     def draw(self, screen):
         pg.draw.circle(screen, self.color, (self.x, self.y), self.radius)
 
-    def update(self):
+    def update(self, obstacle=None):
         self.gravity()
         self.y += self.vy
+        if self.genes and self.should_jump(obstacle):
+            self.jump()
 
     def gravity(self):
         if self.y >= HEIGHT - BASE_HEIGHT - self.radius and self.vy >= 0: # if player near (or under) ground while having downward or no velocity, terminate jump and reset player to ground level with zero velocity
@@ -61,19 +63,12 @@ class Player:
     def jump(self):
         self.is_jumping = True
         self.vy = JUMP_FORCE
-        # TBD: potentially add a pause before this function can be called succesfully again, to prevent spam jumping
 
     def is_colliding(self, obstacle):
         dx = self.x - max(obstacle.x, min(self.x, obstacle.x + obstacle.width)) # a smart way to get the nearest x-coordinate of the obstacle to the player's center
         dy = self.y - max(obstacle.y, min(self.y, obstacle.y + obstacle.height))
         dist = dx**2 + dy**2
         return dist < self.radius**2 or self.y <= BASE_HEIGHT # also handles roof collision
-    
-    def update_GA(self, obstacle):
-        self.gravity()
-        self.y += self.vy
-        if self.should_jump(obstacle):
-            self.jump()
     
     def should_jump(self, obstacle): # for GA training only
         dist = obstacle.x - self.x # + when left of obstacle, - right when player center crossing obstacle
@@ -122,6 +117,7 @@ def run_game_ga():
     # - Initialize obstacle
     obstacle = Obstacle()
 
+
     # -- Run game --
     game_running = True
     game_paused = False
@@ -129,6 +125,9 @@ def run_game_ga():
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 game_running = False
+            elif event.type == pg.KEYDOWN:
+                if event.key == pg.K_p:
+                        game_paused = not game_paused
 
         if not game_paused:
             screen.fill(BG_COLOR)
@@ -137,7 +136,7 @@ def run_game_ga():
 
             # - Update players and obstacle
             for player in population:
-                player.update_GA(obstacle)
+                player.update(obstacle)
             obstacle.update()
 
             for player in population:
@@ -155,6 +154,8 @@ def run_game_ga():
 
     pg.quit()
     sys.exit()
+
+
 
 
 # STANDARD GAME
