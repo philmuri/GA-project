@@ -2,7 +2,6 @@ import pygame as pg
 import numpy as np
 import time
 import sys
-import pygad
 
 # Constants: Game
 WIDTH, HEIGHT = 800, 600
