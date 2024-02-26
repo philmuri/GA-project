@@ -2,6 +2,7 @@ import pygame as pg
 import numpy as np
 import time
 import sys
+from typing import List, Dict
 
 # Constants: Game
 WIDTH, HEIGHT = 800, 600
@@ -13,22 +14,27 @@ OBSTACLE_HEIGHT_MIN = 50
 OBSTACLE_HEIGHT_MAX = 300
 
 PLAYER_START_POSITION = 80
-PLAYER_RADIUS = 15
-PLAYER_JUMP_COOLDOWN = 0.125
+PLAYER_RADIUS = 20
+PLAYER_JUMP_COOLDOWN = 0.25
 
 BG_COLOR = (200, 200, 200)
 BASE_COLOR = (0, 0, 0)
 OBSTACLE_COLOR = (0, 0, 0)
 PLAYER_COLOR = (128, 128, 128)
 PLAYER_DEATH_COLOR = (255, 0, 0)
+FONT_COLOR = (128, 128, 128)
+FONT_SIZE = 16
+FONT_TYPE = 'Times New Roman'
 
 OBSTACLE_SPEED = 10
 GRAVITY = 0.5
 JUMP_FORCE = -10
 
+GAME_FPS = 120
+
 # Constants: Genetic Algorithm
 POPULATION_SIZE = 30
-MUTATION_RATE = 0.5
+MUTATION_RATE = 0.1
 MUTATION_SIZE_FACTOR = 1
 
 
@@ -166,15 +172,25 @@ def save_data(filename: str, data):
             file.write(str(l) + '\n')
 
 
+def render_info_text(screen, states: Dict, x: int, y: int):
+    """
+    states: A dictionairy object containing state names as keys and their content as values
+    """
+    font = pg.font.SysFont(FONT_TYPE, FONT_SIZE)
+    for n, (k, v) in enumerate(states.items()):
+        text = font.render(f"{k}: {v}", True, FONT_COLOR) # Text
+        y_offset = y + n * FONT_SIZE
+        screen.blit(text, (x, y_offset))
+
+
+
 # -- GENETIC ALGORITHM GAME --
 def run_game_ga():
     # -- Initialize game --
-    pg.init() 
+    pg.init()
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     pg.display.set_caption("Obstacle Jumping")
     clock = pg.time.Clock()
-
-    n_generation = 0
     
     # -- Initialize players and obstacles --
     # - Populate the game with players and initialize their genes
@@ -186,14 +202,20 @@ def run_game_ga():
         init_genes = [dist_threshold, height_threshold, jump_power]
         player = Player(genes=init_genes)
         population.append(player)
-
     # - Initialize obstacle
     obstacle = Obstacle()
-
     # - Data collecton
-    best_solution_times = [] # best solution times per generation
-    genes_over_generations = [] # genes of all players per generation
-    times_over_generations = [] # times of all players per generation
+    n_generation = 0
+    best_solution = 0
+    previous_best_solution = 0
+    overall_best_solution = 0
+    best_solution_times = []
+    genes_over_generations = []
+    times_over_generations = []
+    ga_states = {"Generation": 0, 
+                 "Best Time": 0, 
+                 "Previous Best Time": 0,
+                 "Overall Best Time": 0}
 
     # -- Run game --
     game_running = True
@@ -211,11 +233,13 @@ def run_game_ga():
                 if event.key == pg.K_p:
                         game_paused = not game_paused
 
+
         if not game_paused:
-            # - Draw background, platform and roof
+            # - Draw game elements
             screen.fill(BG_COLOR)
             pg.draw.rect(screen, BASE_COLOR, (0, HEIGHT - BASE_HEIGHT, WIDTH, HEIGHT)) # Ground
             pg.draw.rect(screen, BASE_COLOR, (0, 0, WIDTH, BASE_HEIGHT)) # Roof
+            render_info_text(screen, ga_states, WIDTH - 180, BASE_HEIGHT + 5) # magic numbers yes
             # - Update players and obstacle
             for player in population:
                 player.update(obstacle)
@@ -236,12 +260,15 @@ def run_game_ga():
                 # - GENETIC ALGORITHM: Evolve current generation and intialize new generation -
                 # for now, we only pass down the best players genes. Later will add option for more parents
                 best_solution = population[-1].time_alive
+                if n_generation > 0: previous_best_solution = best_solution_times[-1][0]
                 best_genes = population[-1].genes
                 
                 # store data
                 best_solution_times.append([best_solution, best_genes])
                 genes_over_generations.append([player.genes[:] for player in population])
                 times_over_generations.append([player.time_alive for player in population])
+                overall_best_solution = max([time[0] for time in best_solution_times])
+                print(overall_best_solution)
                 
                 for player in population:
                     player.genes = best_genes
@@ -257,8 +284,11 @@ def run_game_ga():
                                 player.genes[n] += int(np.random.normal(0, 1 * MUTATION_SIZE_FACTOR)) # 1 st.dev. is roughly [-4, 4]
                     mutated_genes.append(player.genes[:])
 
-                print(f"Generation: {n_generation} | Best solution time: {best_solution} | Genes: {best_genes}")
-                # print(mutated_genes)
+                print(f"Generation: {n_generation} | Best solution time: {best_solution} (previous: {previous_best_solution}) | Genes: {best_genes}")
+                ga_states["Generation"] = n_generation
+                ga_states["Best Time"] = best_solution
+                ga_states["Previous Best Time"] = previous_best_solution
+                ga_states["Overall Best Time"] = overall_best_solution
 
                 obstacle.__init__()
                 for n, player in enumerate(population):
@@ -270,7 +300,7 @@ def run_game_ga():
 
             pg.display.flip()
 
-        clock.tick(60)
+        clock.tick(GAME_FPS)
 
     pg.quit()
     sys.exit()
@@ -340,8 +370,9 @@ if __name__ == '__main__':
 
 """
 TBD:
-- Add a system that penalizes flying forever?
-- ! Add some text in one of the game corners detailing the genetic algorithm status (generation, settings, current best time, ...)
+- DATA: Create new folder for data each game run with data if number of generations is significantly large, and also store info like top X best overall times and the corresponding genes
+- Add a system that penalizes flying forever + make jump cooldown another gene?
+- ! Add some text in one of the game corners detailing the genetic algorithm status (generation, settings, current best time, round timer ...)
 - Add a GUI for starting game and restarting game. Start game will show up when game is first booted, restart game will shwo up when population is dead (not for genetic algorith part though; here it will just reset() the game state with the improved player genes)
 - ! ADD another feature to combat degradation effect of mutations on evolution: 
     Generations survived as another performance variable. Make a new attribute which counts and adds one to itself each generation.
