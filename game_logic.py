@@ -183,6 +183,11 @@ def render_info_text(screen, states: Dict, x: int, y: int):
         screen.blit(text, (x, y_offset))
 
 
+def render_timer(screen, round_time: str, x: int, y: int):
+    font = pg.font.SysFont(FONT_TYPE, FONT_SIZE * 2)
+    text = font.render(f"{round_time:.2f}", True, FONT_COLOR)
+    screen.blit(text, text.get_rect(center=(WIDTH//2, BASE_HEIGHT//2)))
+
 
 # -- GENETIC ALGORITHM GAME --
 def run_game_ga():
@@ -205,6 +210,7 @@ def run_game_ga():
     # - Initialize obstacle
     obstacle = Obstacle()
     # - Data collecton
+    round_time = 0
     n_generation = 0
     best_solution = 0
     previous_best_solution = 0
@@ -240,6 +246,7 @@ def run_game_ga():
             pg.draw.rect(screen, BASE_COLOR, (0, HEIGHT - BASE_HEIGHT, WIDTH, HEIGHT)) # Ground
             pg.draw.rect(screen, BASE_COLOR, (0, 0, WIDTH, BASE_HEIGHT)) # Roof
             render_info_text(screen, ga_states, WIDTH - 180, BASE_HEIGHT + 5) # magic numbers yes
+            render_timer(screen, round_time, 0, 0)
             # - Update players and obstacle
             for player in population:
                 player.update(obstacle)
@@ -300,7 +307,8 @@ def run_game_ga():
 
             pg.display.flip()
 
-        clock.tick(GAME_FPS)
+        game_tick = clock.tick(GAME_FPS)
+        round_time += game_tick / 1000
 
     pg.quit()
     sys.exit()
@@ -372,7 +380,6 @@ if __name__ == '__main__':
 TBD:
 - DATA: Create new folder for data each game run with data if number of generations is significantly large, and also store info like top X best overall times and the corresponding genes
 - Add a system that penalizes flying forever + make jump cooldown another gene?
-- ! Add some text in one of the game corners detailing the genetic algorithm status (generation, settings, current best time, round timer ...)
 - Add a GUI for starting game and restarting game. Start game will show up when game is first booted, restart game will shwo up when population is dead (not for genetic algorith part though; here it will just reset() the game state with the improved player genes)
 - ! ADD another feature to combat degradation effect of mutations on evolution: 
     Generations survived as another performance variable. Make a new attribute which counts and adds one to itself each generation.
