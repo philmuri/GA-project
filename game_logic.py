@@ -2,7 +2,9 @@ import pygame as pg
 import numpy as np
 import time
 import sys
-from typing import List, Dict
+import heapq
+from typing import List, Dict, Any
+from pathlib import Path
 
 # Constants: Game
 WIDTH, HEIGHT = 800, 600
@@ -26,20 +28,21 @@ FONT_COLOR = (128, 128, 128)
 FONT_SIZE = 16
 FONT_TYPE = 'Times New Roman'
 
-OBSTACLE_SPEED = 10
+OBSTACLE_SPEED = 15
 GRAVITY = 0.5
 JUMP_FORCE = -10
 
 GAME_FPS = 120
 
 # Constants: Genetic Algorithm
-POPULATION_SIZE = 30
-MUTATION_RATE = 0.1
+POPULATION_SIZE = 4
+MUTATION_RATE = 1
 MUTATION_SIZE_FACTOR = 1
+KEEP_PARENTS = 2
 
 
 class Player:
-    def __init__(self, genes=None):
+    def __init__(self, genes=None, toughness=None):
         self.radius = PLAYER_RADIUS
         self.x = PLAYER_START_POSITION
         self.y = HEIGHT - BASE_HEIGHT - self.radius
@@ -48,12 +51,14 @@ class Player:
         self.jump_cooldown = PLAYER_JUMP_COOLDOWN
         self.last_jump_time = 0
         self.color = PLAYER_COLOR
-        self.genes = genes # for now its content are not explicit, but it must always be structured as a List[int] where [dist_rule, height_rule, jumpforce_rule] 
-        self.time_alive = 0
+        self.genes = genes # for now its content are not explicit, but it must always be structured as a List[int] where [dist_rule, height_rule, jumpforce_rule]
         self.init_time = time.time()
         self.is_animating = False
         self.animation_start_time = 0
         self.is_dead = False
+        # Performance attributes:
+        self.time_alive = 0
+        self.toughness = toughness
     
 
     def draw(self, screen, color):
@@ -80,7 +85,6 @@ class Player:
                 if current_time - self.last_jump_time >= self.jump_cooldown or self.last_jump_time == 0:
                     self.jump()
                     self.last_jump_time = time.time()
-
 
     def gravity(self):
         """
@@ -148,6 +152,9 @@ class Player:
             self.x -= OBSTACLE_SPEED
             pg.draw.circle(screen, PLAYER_DEATH_COLOR, (self.x, self.y), self.radius)
 
+    def fitness_score(self):
+        return self.time_alive * (self.toughness + 1)
+
 
 class Obstacle:
     def __init__(self): # obstacle height will be randomized
@@ -165,11 +172,15 @@ class Obstacle:
         self.x -= OBSTACLE_SPEED
 
 
-def save_data(filename: str, data):
-    filename = filename + '.txt'
-    with open(filename,'w') as file:
-        for l in data:
-            file.write(str(l) + '\n')
+def save_data(file_names: List[str], data: List[Any], folder_name: str = None): # list lengths must match
+    if not folder_name: folder_name = 'GA_data'
+    folder_path = Path(folder_name)
+    folder_path.mkdir(exist_ok=True)
+    
+    for n, file_name in enumerate(file_names):
+        with open(folder_path / file_name,'w') as file:
+            for l in data[n]:
+                file.write(str(l) + '\n')
 
 
 def render_info_text(screen, states: Dict, x: int, y: int):
@@ -178,14 +189,14 @@ def render_info_text(screen, states: Dict, x: int, y: int):
     """
     font = pg.font.SysFont(FONT_TYPE, FONT_SIZE)
     for n, (k, v) in enumerate(states.items()):
-        text = font.render(f"{k}: {v}", True, FONT_COLOR) # Text
+        text = font.render(f"{k}: {v:.1f}", True, FONT_COLOR) # Text
         y_offset = y + n * FONT_SIZE
         screen.blit(text, (x, y_offset))
 
 
 def render_timer(screen, round_time: str, x: int, y: int):
     font = pg.font.SysFont(FONT_TYPE, FONT_SIZE * 2)
-    text = font.render(f"{round_time:.2f}", True, FONT_COLOR)
+    text = font.render(f"{round_time:.1f}", True, FONT_COLOR)
     screen.blit(text, text.get_rect(center=(WIDTH//2, BASE_HEIGHT//2)))
 
 
@@ -205,23 +216,25 @@ def run_game_ga():
         height_threshold = np.random.randint(50, 100)
         jump_power = int(np.random.uniform(-20, -5))
         init_genes = [dist_threshold, height_threshold, jump_power]
-        player = Player(genes=init_genes)
+        player = Player(genes=init_genes, toughness=0)
         population.append(player)
     # - Initialize obstacle
     obstacle = Obstacle()
     # - Data collecton
     round_time = 0
     n_generation = 0
-    best_solution = 0
+    best_times = 0
     previous_best_solution = 0
     overall_best_solution = 0
     best_solution_times = []
     genes_over_generations = []
     times_over_generations = []
+    toughness_over_generations = []
     ga_states = {"Generation": 0, 
                  "Best Time": 0, 
                  "Previous Best Time": 0,
-                 "Overall Best Time": 0}
+                 "Overall Best Time": 0,
+                 "Highest Toughness": 0}
 
     # -- Run game --
     game_running = True
@@ -230,10 +243,9 @@ def run_game_ga():
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 game_running = False
-
-                save_data('best_solution_times', best_solution_times)
-                save_data('genes_over_generations', genes_over_generations)
-                save_data('times_over_generations', times_over_generations)
+                 
+                save_data(file_names=['best_solution_times.txt', 'genes_over_generations.txt', 'times_over_generations.txt', 'toughness_over_generations.txt'], 
+                          data=[best_solution_times, genes_over_generations, times_over_generations, toughness_over_generations])
 
             elif event.type == pg.KEYDOWN:
                 if event.key == pg.K_p:
@@ -241,7 +253,7 @@ def run_game_ga():
 
 
         if not game_paused:
-            # - Draw game elements
+            # - Draw game elements each game tick
             screen.fill(BG_COLOR)
             pg.draw.rect(screen, BASE_COLOR, (0, HEIGHT - BASE_HEIGHT, WIDTH, HEIGHT)) # Ground
             pg.draw.rect(screen, BASE_COLOR, (0, 0, WIDTH, BASE_HEIGHT)) # Roof
@@ -256,31 +268,49 @@ def run_game_ga():
                 if not player.is_dead and player.is_colliding(obstacle=obstacle):
                     player.kill()
                     
-            # - Redraw players and obstacle
+            # - Redraw players and obstacle each game tick
             for player in population:
                 player.draw(screen, player.color)
             obstacle.draw(screen)
+
             # - Handle case when all players are dead
             if all(player.is_dead for player in population):
-                game_paused = True
+                game_paused = True # NOTE: not necessary anymore
                 
-                # - GENETIC ALGORITHM: Evolve current generation and intialize new generation -
-                # for now, we only pass down the best players genes. Later will add option for more parents
-                best_solution = population[-1].time_alive
-                if n_generation > 0: previous_best_solution = best_solution_times[-1][0]
-                best_genes = population[-1].genes
-                
-                # store data
-                best_solution_times.append([best_solution, best_genes])
-                genes_over_generations.append([player.genes[:] for player in population])
-                times_over_generations.append([player.time_alive for player in population])
-                overall_best_solution = max([time[0] for time in best_solution_times])
-                print(overall_best_solution)
-                
-                for player in population:
-                    player.genes = best_genes
+                # -- GENETIC ALGORITHM: Evolve current generation and intialize new generation --
+                best_players = heapq.nlargest(KEEP_PARENTS, population, key=lambda player: (player.fitness_score()))
+                best_times = [best_player.time_alive for best_player in best_players]
+                best_genes = [best_player.genes for best_player in best_players]
 
-                # - Random mutations
+                # - Update all player toughness (NOTE: Temporary implementation until I find a 'cleaner' way)
+                new_toughness = [0] * len(population)
+                for i, player in enumerate(population):
+                    if player in best_players:
+                        player.toughness += 1
+                    else:
+                        player.toughness = 0
+                    new_toughness[i] = player.toughness
+                
+                # - Store data
+                best_solution_times.append([n_generation, id(best_players), best_times, best_genes])
+                genes_over_generations.append([n_generation, [[id(player), player.genes[:]] for player in population]])
+                times_over_generations.append([n_generation, [[id(player), player.time_alive] for player in population]])
+                toughness_over_generations.append([n_generation, [[id(player), player.toughness] for player in population]])
+                
+                # - Update text display info variables
+                if n_generation > 0: previous_best_solution = max(best_solution_times[-2][2])
+                overall_best_solution = max([max(solution[2]) for solution in best_solution_times])
+                ga_states["Generation"] = n_generation
+                ga_states["Best Time"] = max(best_times)
+                ga_states["Previous Best Time"] = previous_best_solution
+                ga_states["Overall Best Time"] = overall_best_solution
+                ga_states["Highest Toughness"] = max(new_toughness)
+                
+                # - Crossover
+                for player in population: 
+                    player.genes = list(np.mean(np.array(best_genes), axis=0)) # use average for chromosome crossover
+
+                # - Mutations
                 mutated_genes = []
                 for player in population:
                     for n in range(len(player.genes)):
@@ -291,17 +321,13 @@ def run_game_ga():
                                 player.genes[n] += int(np.random.normal(0, 1 * MUTATION_SIZE_FACTOR)) # 1 st.dev. is roughly [-4, 4]
                     mutated_genes.append(player.genes[:])
 
-                print(f"Generation: {n_generation} | Best solution time: {best_solution} (previous: {previous_best_solution}) | Genes: {best_genes}")
-                ga_states["Generation"] = n_generation
-                ga_states["Best Time"] = best_solution
-                ga_states["Previous Best Time"] = previous_best_solution
-                ga_states["Overall Best Time"] = overall_best_solution
-
+                # - Reset attributes (NOTE: dirty method for now; TBD: add reset methods to each class that properly and safely handle attribute resetting)
                 obstacle.__init__()
                 for n, player in enumerate(population):
-                    player.__init__(mutated_genes[n])
+                    player.__init__(mutated_genes[n], new_toughness[n])
 
                 n_generation += 1
+                round_time = 0
 
                 game_paused = False
 
@@ -378,12 +404,25 @@ if __name__ == '__main__':
 
 """
 TBD:
-- DATA: Create new folder for data each game run with data if number of generations is significantly large, and also store info like top X best overall times and the corresponding genes
+- Refactoring:
+    - Make a class for genetic algorithm part?
+    - Lots of repeated loops that can potentially be grouped together
+    - For cleaner code, changing 'genes' attribute to be a dict might be better
+- Error handling:
+    - KEEP_PARENTS <= POPULATION_SIZE
+    - Negative inputs and general non-physical inputs can be treated later (if ever...)
+- Initialize players with a unique random color tied to their memory address (accessible with id(player))
+- DATA: Define function that creates folder and stores a csv style file (using pandas) containing the following columns for EACH player ID (us eid() for unique identifier from memory address):
+    - Generations: Current generation (row 1 is generation 1, row 2 is 2 and so on)
+    - Genes: A list of all gene values in the usual order [dist, height, jumpforce]
+    - Toughess: Toughness of the player in current generation
+    - Fitness score: Depending on how its defined, can be derived from Genes and Toughness, so it might be redundant
+    - NOTE: Alongside the data should be all the base parameters for genetic algorithm plus game settings, e.g. OBSTACLE_SPEED, KEEP_PARENTS and so on. Perhaps in a seperate file titled 'settings', possibly in yaml
+- DATA: Other things that can be stored in a single data file (although this can be derived from the latter-mentioned data)
+    - Best solution time overall
+    - Highest toughness overall
+    - Highest value of fitness function
 - Add a system that penalizes flying forever + make jump cooldown another gene?
 - Add a GUI for starting game and restarting game. Start game will show up when game is first booted, restart game will shwo up when population is dead (not for genetic algorith part though; here it will just reset() the game state with the improved player genes)
-- ! ADD another feature to combat degradation effect of mutations on evolution: 
-    Generations survived as another performance variable. Make a new attribute which counts and adds one to itself each generation.
-    The nature of the new fitness function could e.g. be the product generations_survived * time_alive.
-    NOTE: This will require implementing keeping multiple parents; otherwise the same player would be favored forever
 - Consider what other data can be saved for analysis
 """

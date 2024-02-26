@@ -5,5 +5,5 @@ build/
 dist/
 *.spec
 
-# data files stored as .txt (temporary solution)
-*.txt
+# data files stored in folder named GA_data
+GA_data/

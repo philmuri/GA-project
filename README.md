@@ -24,3 +24,6 @@ I have summarizes the steps involved in the training part to give an overview of
 5. Genetic operators (crossover, mutation) are applied for offspring
 6. New generation: Replace old population with offsprings and potentially keep some parents
 7. Back to step 4
+
+## Current issues
+- Some Player class attributes are passed as arguments of type None - namely 'genes' and 'toughness'. This wouldn't be necessary if a proper reset() method is defined that re-initializes all attributes except the latter ones. My current implementation requires introducing new lists ('mutated_genes' and 'new_toughness'), which creates a bit of clutter that could be refactored.
