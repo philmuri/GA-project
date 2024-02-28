@@ -6,17 +6,18 @@ import heapq
 from typing import List, Dict, Any
 from pathlib import Path
 
-# Constants: Game
-WIDTH, HEIGHT = 800, 600
+# Global Variables
+WIDTH = 1200
+HEIGHT = 600
 BASE_HEIGHT = 50
 
-OBSTACLE_WIDTH_MIN = 50
-OBSTACLE_WIDTH_MAX = 100
+OBSTACLE_WIDTH_MIN = 100
+OBSTACLE_WIDTH_MAX = 150
 OBSTACLE_HEIGHT_MIN = 50
 OBSTACLE_HEIGHT_MAX = 300
 
-PLAYER_START_POSITION = 80
-PLAYER_RADIUS = 20
+PLAYER_START_POSITION = 200
+PLAYER_RADIUS = 25
 PLAYER_JUMP_COOLDOWN = 0.25
 
 BG_COLOR = (200, 200, 200)
@@ -26,17 +27,17 @@ PLAYER_COLOR = (128, 128, 128)
 PLAYER_DEATH_COLOR = (255, 0, 0)
 FONT_COLOR = (128, 128, 128)
 FONT_SIZE = 16
-FONT_TYPE = 'Times New Roman'
+FONT_TYPE = 'Calibri'
 
-OBSTACLE_SPEED = 15
+OBSTACLE_SPEED = 10
 GRAVITY = 0.5
 JUMP_FORCE = -10
 
-GAME_FPS = 120
+GAME_FPS = 90
 
-# Constants: Genetic Algorithm
-POPULATION_SIZE = 4
-MUTATION_RATE = 1
+# Global Variables: GA
+POPULATION_SIZE = 30
+MUTATION_RATE = 0.5
 MUTATION_SIZE_FACTOR = 1
 KEEP_PARENTS = 2
 
@@ -51,7 +52,8 @@ class Player:
         self.jump_cooldown = PLAYER_JUMP_COOLDOWN
         self.last_jump_time = 0
         self.color = PLAYER_COLOR
-        self.genes = genes # for now its content are not explicit, but it must always be structured as a List[int] where [dist_rule, height_rule, jumpforce_rule]
+        # for now its content are not explicit, but it must always be structured as a List[int] where [dist_rule, height_rule, jumpforce_rule]
+        self.genes = genes
         self.init_time = time.time()
         self.is_animating = False
         self.animation_start_time = 0
@@ -59,14 +61,13 @@ class Player:
         # Performance attributes:
         self.time_alive = 0
         self.toughness = toughness
-    
 
     def draw(self, screen, color):
         """
         Draw the player in its current position or according to an animation.
         """
         if self.is_animating:
-            self.animation(screen) # separate draw animation
+            self.animation(screen)  # separate draw animation
         else:
             pg.draw.circle(screen, color, (self.x, self.y), self.radius)
 
@@ -76,7 +77,7 @@ class Player:
         Also handles genetic algorithm player motion by calling jump() when should_jump() is True.
         """
         if self.is_animating:
-            pass # disable physics on animating player
+            pass  # disable physics on animating player
         else:
             self.gravity()
             self.y += self.vy
@@ -90,12 +91,13 @@ class Player:
         """
         Simulate game physics as a constant gravitational downforce and player and base interaction.
         """
-        if self.y >= HEIGHT - BASE_HEIGHT - self.radius and self.vy >= 0: # if player near (or under) ground while having downward or no velocity, terminate jump and reset player to ground level with zero velocity
+        if self.y >= HEIGHT - BASE_HEIGHT - self.radius and self.vy >= 0:  # if player near (or under) ground while having downward or no velocity, terminate jump and reset player to ground level with zero velocity
             self.y = HEIGHT - BASE_HEIGHT - self.radius
             self.vy = 0
             self.is_jumping = False
-        else: # if in air and upward velocity, act with gravity (downward constant acceleration)
-            self.vy += GRAVITY   
+        # if in air and upward velocity, act with gravity (downward constant acceleration)
+        else:
+            self.vy += GRAVITY
 
     def jump(self):
         """
@@ -112,26 +114,32 @@ class Player:
         Handle collision events by evaluating player-obstacle Euclidean distance and player-roof distance.
         Returns True if colliding.
         """
-        dx = self.x - max(obstacle.x, min(self.x, obstacle.x + obstacle.width)) # a smart way to get the nearest x-coordinate of the obstacle to the player's center
-        dy = self.y - max(obstacle.y, min(self.y, obstacle.y + obstacle.height))
+        dx = self.x - max(obstacle.x, min(self.x, obstacle.x + obstacle.width)
+                          )  # a smart way to get the nearest x-coordinate of the obstacle to the player's center
+        dy = self.y - max(obstacle.y, min(self.y,
+                          obstacle.y + obstacle.height))
         dist = dx**2 + dy**2
-        return dist < self.radius**2 or self.y <= BASE_HEIGHT # also handles roof collision
-    
-    def should_jump(self, obstacle): # for GA training only
+        return dist < self.radius**2 or self.y <= BASE_HEIGHT  # also handles roof collision
+
+    def should_jump(self, obstacle):  # for GA training only
         """
         Jump logic for genetic algorithm training, based on player proximity to obstacle in x and y direction (separately).
         This introduces functionality to the genes in the player chromosome and is the basis for the evolution process.
         (NOTE: for genetic algorithm part only)
         """
-        dist = obstacle.x - self.x # + when left of obstacle, - right when player center crossing obstacle
-        height_diff = self.y - obstacle.y # + when below obstacle, - when player center crossing above obstacle
-        if (dist + obstacle.width >= 0 and dist <= self.genes[0]): # player ignores current obstacle distance once the center passes its right side. player jumps before then only if also its distance to obstacle is less than the gene-specified value
+        dist = obstacle.x - \
+            self.x  # + when left of obstacle, - right when player center crossing obstacle
+        # + when below obstacle, - when player center crossing above obstacle
+        height_diff = self.y - obstacle.y
+        # player ignores current obstacle distance once the center passes its right side. player jumps before then only if also its distance to obstacle is less than the gene-specified value
+        if (dist + obstacle.width >= 0 and dist <= self.genes[0]):
             return True
-        if (height_diff >= self.genes[1]): # if player is sufficiently below an obstacle, jump
+        # if player is sufficiently below an obstacle, jump
+        if (height_diff >= self.genes[1]):
             return True
         return False
-    
-    def kill(self): # if kill is called, player object enters is_animating state and will cease to update() while draw() has a custom behavior (in this case moving with obstacle speed)
+
+    def kill(self):  # if kill is called, player object enters is_animating state and will cease to update() while draw() has a custom behavior (in this case moving with obstacle speed)
         """
         Kill a player by toggling the is_animating flag to True, which subsequently disables its physics in the update() method and enables a death animation in draw().
         Also sets the animation_start_time to be used by the animation() method for animation duration measurement.
@@ -150,37 +158,49 @@ class Player:
             self.is_animating = False
         else:
             self.x -= OBSTACLE_SPEED
-            pg.draw.circle(screen, PLAYER_DEATH_COLOR, (self.x, self.y), self.radius)
+            pg.draw.circle(screen, PLAYER_DEATH_COLOR,
+                           (self.x, self.y), self.radius)
 
     def fitness_score(self):
-        return self.time_alive * (self.toughness + 1)
+        """
+        Fitness function for the genetic algorithm.
+        Currently modulated by the toughness (generations survived) of the player, with initially a large contribution which decays the longer the player has survived.
+        The idea is to favor the surviving player as a parent/solution for a little while longer than one generation on average, so as to counteract the randomness from
+        mutations. As the generations pass and the offspring starts to outperform the surviving player in time_alive, their fitness score should drop to give them less importance.
+        """
+        if self.toughness > 0:
+            return self.time_alive * (1 / self.toughness + 1)
+        else:
+            return self.time_alive
 
 
 class Obstacle:
-    def __init__(self): # obstacle height will be randomized
+    def __init__(self):  # obstacle height will be randomized
         self.width = np.random.randint(OBSTACLE_WIDTH_MIN, OBSTACLE_WIDTH_MAX)
-        self.height = np.random.randint(OBSTACLE_HEIGHT_MIN, OBSTACLE_HEIGHT_MAX)
+        self.height = np.random.randint(
+            OBSTACLE_HEIGHT_MIN, OBSTACLE_HEIGHT_MAX)
         self.x = WIDTH
         self.y = HEIGHT - BASE_HEIGHT - self.height
 
     def draw(self, screen):
-        pg.draw.rect(screen, OBSTACLE_COLOR, (self.x, self.y, self.width, self.height))
+        pg.draw.rect(screen, OBSTACLE_COLOR,
+                     (self.x, self.y, self.width, self.height))
 
     def update(self):
         if self.x + self.width <= 0:
-            self.__init__() # this might be bad practice
+            self.__init__()  # this might be bad practice
         self.x -= OBSTACLE_SPEED
 
 
-def save_data(file_names: List[str], data: List[Any], folder_name: str = None): # list lengths must match
-    if not folder_name: folder_name = 'GA_data'
+# list lengths must match
+def save_data(file_names: List[str], data: List[Any], folder_name: str = 'GA_data'):
     folder_path = Path(folder_name)
     folder_path.mkdir(exist_ok=True)
-    
+
     for n, file_name in enumerate(file_names):
-        with open(folder_path / file_name,'w') as file:
-            for l in data[n]:
-                file.write(str(l) + '\n')
+        with open(folder_path / file_name, 'w') as file:
+            for line in data[n]:
+                file.write(str(line) + '\n')
 
 
 def render_info_text(screen, states: Dict, x: int, y: int):
@@ -189,12 +209,12 @@ def render_info_text(screen, states: Dict, x: int, y: int):
     """
     font = pg.font.SysFont(FONT_TYPE, FONT_SIZE)
     for n, (k, v) in enumerate(states.items()):
-        text = font.render(f"{k}: {v:.1f}", True, FONT_COLOR) # Text
+        text = font.render(f"{k}: {v:.1f}", True, FONT_COLOR)  # Text
         y_offset = y + n * FONT_SIZE
         screen.blit(text, (x, y_offset))
 
 
-def render_timer(screen, round_time: str, x: int, y: int):
+def render_timer(screen, round_time: float, x: int, y: int):
     font = pg.font.SysFont(FONT_TYPE, FONT_SIZE * 2)
     text = font.render(f"{round_time:.1f}", True, FONT_COLOR)
     screen.blit(text, text.get_rect(center=(WIDTH//2, BASE_HEIGHT//2)))
@@ -207,7 +227,7 @@ def run_game_ga():
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     pg.display.set_caption("Obstacle Jumping")
     clock = pg.time.Clock()
-    
+
     # -- Initialize players and obstacles --
     # - Populate the game with players and initialize their genes
     population = []
@@ -230,8 +250,8 @@ def run_game_ga():
     genes_over_generations = []
     times_over_generations = []
     toughness_over_generations = []
-    ga_states = {"Generation": 0, 
-                 "Best Time": 0, 
+    ga_states = {"Generation": 0,
+                 "Best Time": 0,
                  "Previous Best Time": 0,
                  "Overall Best Time": 0,
                  "Highest Toughness": 0}
@@ -243,21 +263,23 @@ def run_game_ga():
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 game_running = False
-                 
-                save_data(file_names=['best_solution_times.txt', 'genes_over_generations.txt', 'times_over_generations.txt', 'toughness_over_generations.txt'], 
+
+                save_data(file_names=['best_solution_times.txt', 'genes_over_generations.txt', 'times_over_generations.txt', 'toughness_over_generations.txt'],
                           data=[best_solution_times, genes_over_generations, times_over_generations, toughness_over_generations])
 
             elif event.type == pg.KEYDOWN:
                 if event.key == pg.K_p:
-                        game_paused = not game_paused
-
+                    game_paused = not game_paused
 
         if not game_paused:
             # - Draw game elements each game tick
             screen.fill(BG_COLOR)
-            pg.draw.rect(screen, BASE_COLOR, (0, HEIGHT - BASE_HEIGHT, WIDTH, HEIGHT)) # Ground
-            pg.draw.rect(screen, BASE_COLOR, (0, 0, WIDTH, BASE_HEIGHT)) # Roof
-            render_info_text(screen, ga_states, WIDTH - 180, BASE_HEIGHT + 5) # magic numbers yes
+            pg.draw.rect(screen, BASE_COLOR, (0, HEIGHT -
+                         BASE_HEIGHT, WIDTH, HEIGHT))  # Ground
+            pg.draw.rect(screen, BASE_COLOR,
+                         (0, 0, WIDTH, BASE_HEIGHT))  # Roof
+            render_info_text(screen, ga_states, WIDTH - 180,
+                             BASE_HEIGHT + 5)  # magic numbers yes
             render_timer(screen, round_time, 0, 0)
             # - Update players and obstacle
             for player in population:
@@ -267,7 +289,7 @@ def run_game_ga():
             for player in population:
                 if not player.is_dead and player.is_colliding(obstacle=obstacle):
                     player.kill()
-                    
+
             # - Redraw players and obstacle each game tick
             for player in population:
                 player.draw(screen, player.color)
@@ -275,12 +297,14 @@ def run_game_ga():
 
             # - Handle case when all players are dead
             if all(player.is_dead for player in population):
-                game_paused = True # NOTE: not necessary anymore
-                
+
                 # -- GENETIC ALGORITHM: Evolve current generation and intialize new generation --
-                best_players = heapq.nlargest(KEEP_PARENTS, population, key=lambda player: (player.fitness_score()))
-                best_times = [best_player.time_alive for best_player in best_players]
-                best_genes = [best_player.genes for best_player in best_players]
+                best_players = heapq.nlargest(
+                    KEEP_PARENTS, population, key=lambda player: (player.fitness_score()))
+                best_times = [
+                    best_player.time_alive for best_player in best_players]
+                best_genes = [
+                    best_player.genes for best_player in best_players]
 
                 # - Update all player toughness (NOTE: Temporary implementation until I find a 'cleaner' way)
                 new_toughness = [0] * len(population)
@@ -290,25 +314,32 @@ def run_game_ga():
                     else:
                         player.toughness = 0
                     new_toughness[i] = player.toughness
-                
+
                 # - Store data
-                best_solution_times.append([n_generation, id(best_players), best_times, best_genes])
-                genes_over_generations.append([n_generation, [[id(player), player.genes[:]] for player in population]])
-                times_over_generations.append([n_generation, [[id(player), player.time_alive] for player in population]])
-                toughness_over_generations.append([n_generation, [[id(player), player.toughness] for player in population]])
-                
+                best_solution_times.append(
+                    [n_generation, id(best_players), best_times, best_genes])
+                genes_over_generations.append(
+                    [n_generation, [[id(player), player.genes[:]] for player in population]])
+                times_over_generations.append(
+                    [n_generation, [[id(player), player.time_alive] for player in population]])
+                toughness_over_generations.append(
+                    [n_generation, [[id(player), player.toughness] for player in population]])
+
                 # - Update text display info variables
-                if n_generation > 0: previous_best_solution = max(best_solution_times[-2][2])
-                overall_best_solution = max([max(solution[2]) for solution in best_solution_times])
+                if n_generation > 0:
+                    previous_best_solution = max(best_solution_times[-2][2])
+                overall_best_solution = max(
+                    [max(solution[2]) for solution in best_solution_times])
                 ga_states["Generation"] = n_generation
                 ga_states["Best Time"] = max(best_times)
                 ga_states["Previous Best Time"] = previous_best_solution
                 ga_states["Overall Best Time"] = overall_best_solution
                 ga_states["Highest Toughness"] = max(new_toughness)
-                
+
                 # - Crossover
-                for player in population: 
-                    player.genes = list(np.mean(np.array(best_genes), axis=0)) # use average for chromosome crossover
+                for player in population:
+                    # use average for chromosome crossover
+                    player.genes = list(np.mean(np.array(best_genes), axis=0))
 
                 # - Mutations
                 mutated_genes = []
@@ -316,9 +347,13 @@ def run_game_ga():
                     for n in range(len(player.genes)):
                         if np.random.rand() <= MUTATION_RATE:
                             if n <= 1:
-                                player.genes[n] += int(np.random.normal(0, 2 * MUTATION_SIZE_FACTOR)) # TBD: the lower and upper limits should be constants with appropriate name
+                                # TBD: the lower and upper limits should be constants with appropriate name
+                                player.genes[n] += int(np.random.normal(0,
+                                                       2 * MUTATION_SIZE_FACTOR))
                             if n == 2:
-                                player.genes[n] += int(np.random.normal(0, 1 * MUTATION_SIZE_FACTOR)) # 1 st.dev. is roughly [-4, 4]
+                                # 1 st.dev. is roughly [-4, 4]
+                                player.genes[n] += int(np.random.normal(0,
+                                                       1 * MUTATION_SIZE_FACTOR))
                     mutated_genes.append(player.genes[:])
 
                 # - Reset attributes (NOTE: dirty method for now; TBD: add reset methods to each class that properly and safely handle attribute resetting)
@@ -329,8 +364,6 @@ def run_game_ga():
                 n_generation += 1
                 round_time = 0
 
-                game_paused = False
-
             pg.display.flip()
 
         game_tick = clock.tick(GAME_FPS)
@@ -338,64 +371,6 @@ def run_game_ga():
 
     pg.quit()
     sys.exit()
-
-
-
-
-# -- STANDARD GAME --
-def reset_game(player, obstacle):
-    player.__init__()
-    obstacle.__init__()
-
-
-def run_game():
-    # Initialize game
-    pg.init()
-    clock = pg.time.Clock()
-    player = Player()
-    obstacle = Obstacle()
-    screen = pg.display.set_mode((WIDTH, HEIGHT))
-    pg.display.set_caption("Obstacle Jumping")
-
-    # Run game
-    game_running = True
-    game_paused = False
-
-    while game_running: # handle game events first
-        for event in pg.event.get():
-            if event.type == pg.QUIT:
-                game_running = False
-            elif event.type == pg.KEYDOWN:
-                if event.key == pg.K_SPACE:
-                    player.jump()
-                elif event.key == pg.K_p:
-                    game_paused = not game_paused
-
-        if not game_paused:
-
-            screen.fill(BG_COLOR)
-            pg.draw.rect(screen, BASE_COLOR, (0, HEIGHT - BASE_HEIGHT, WIDTH, HEIGHT)) # draw baseplate
-
-            # Update game objects: update player position, update obstacle position
-            player.update()
-            obstacle.update()
-            
-            # Handle collision event
-            if player.is_colliding(obstacle):
-                time.sleep(1)
-                reset_game(player, obstacle)
-
-            # Draw objects
-            player.draw(screen)
-            obstacle.draw(screen)
-
-            pg.display.flip() # update screen display
-
-        clock.tick(60) # frames per second
-
-    pg.quit()
-    sys.exit()
-
 
 
 if __name__ == '__main__':
@@ -411,6 +386,11 @@ TBD:
 - Error handling:
     - KEEP_PARENTS <= POPULATION_SIZE
     - Negative inputs and general non-physical inputs can be treated later (if ever...)
+
+
+- IMPORTANT: Add another gene being the height to the ceiling
+- IMPORTANT: If this still doesn't train properly, replace current fitness function with actual neural network structure. See https://github.com/felschatz/Sloppy-Block/blob/master/bird.py
+
 - Initialize players with a unique random color tied to their memory address (accessible with id(player))
 - DATA: Define function that creates folder and stores a csv style file (using pandas) containing the following columns for EACH player ID (us eid() for unique identifier from memory address):
     - Generations: Current generation (row 1 is generation 1, row 2 is 2 and so on)
@@ -422,7 +402,8 @@ TBD:
     - Best solution time overall
     - Highest toughness overall
     - Highest value of fitness function
-- Add a system that penalizes flying forever + make jump cooldown another gene?
+- Add a system that penalizes flying forever + make jump cooldown another gene?  --> YES
 - Add a GUI for starting game and restarting game. Start game will show up when game is first booted, restart game will shwo up when population is dead (not for genetic algorith part though; here it will just reset() the game state with the improved player genes)
-- Consider what other data can be saved for analysis
+- Make obstacles more difficult. Perhaps adopt the flappy bird style of top and bottom columns with a fixed size for the hole. This would require updating the Obstacle draw method
+
 """
