@@ -1,29 +1,34 @@
-# Jumping Game using Genetic Algorithm in Python
+# Obstacle Jumping with NN Genetic Algorithm
 
 ## Introduction
-In this project I will use genetic algorithms in a python framework to train a character to jump over simple obstacles while exposed to a gravitational force. I use the module [`pygad`](https://pygad.readthedocs.io/en/latest/) ([source code](https://github.com/ahmedfgad/GeneticAlgorithmPython)) for the genetic algorithm part. I use `pygame` to create the game environment and all the game logic.
+In this project I will incorporate a genetic algorithm made from scratch to train a player to jump over obstacles. This is done in a python framework using `pygame` for the game development part. The project will include a single-player mode where the user can play the game and compare their performance to the AI.
 
 ## Features
-The **character** actions and objective include:
-- **Jumping**: An instantaneous vertical velocity component is added onto the vertical position of the character
-- **Motion**: The character will have a (constant) forward motion, OR have a fixed x-location while the obstacle moves to the left
-- **Gravity**: The character will be dragged back down by a constant acceleration
-- **Obstacles**: The character should be able to jump over an obstacle, and will fail if touching the obstacle (game reset)
-
-The **environment** will be written up in HTML canvas (or something similar). It will include:
-- A starting point for the character to spawn
-- An obstacle that will disable the character if touched
-- A goal point that rewards the character for reaching it
+The player actions include:
+- **Jumping**: An instantaneous vertical velocity component is added onto the vertical position of the character.
+- **Motion**: Player motion is simulated by the obstacles moving to the left while the player remains still.
+- **Gravity**: A constant downward acceleration.
+- **Obstacles**: Player collision with obstacles will lead to a loss and will define performance in terms of time survived before a collision.
 
 ## Workflow for the GA part
-I have summarizes the steps involved in the training part to give an overview of the workflow:
-1. Define GA parameters and create fitness function
-2. Chromosomes: Representation of player behavior. Specifically, these include ... ?
-3. Initialize player population with random chromosomes
-4. `pygad` evolves population through generations by evaluating fitness value of each player based on how far they get, and parents are selected for reproduction based on fitness
-5. Genetic operators (crossover, mutation) are applied for offspring
-6. New generation: Replace old population with offsprings and potentially keep some parents
-7. Back to step 4
+Here I have summarized the steps involved in the training phase:
+1. **Initialization**: Define GA features/genes/NN inputs and fitness function and initialize weights
+   - Features include distance to ceiling, horizontal distance to closest object, vertical distance to upper-left corner of closest object, jumping power, and the vertical position and velocity of the player. All these will collectively influence when the AI decides to jump.
+   - Fitness function is defined according to best performance, i.e. the time alive. 
+   - Weights are initialized according to a first good-guess of the features.
+2. **Selection**: Evolve a player population through generations by evaluating time alive for each player. Each player's jump state (jump or don't jump) is determined by the output/prediction of the NN.
+3. **Evolution**: Genetic operators (**crossover**, **mutation**) are applied to create the new population. The best solutions will be used to initialize the new population in three different ways (split equally):
+   - **Standard crossover**: Breed and mutate two best solutions within generation.
+   - **Cross-generation crossover**: Breed and mutate best solutions in current generation and best overall generation.
+   - **Best solution cloning**: Clone the weights of the best solution in current generation.
+   - (**Resilience bonus**: If player survives over many generations, give them a survival bonus)
+   - **Population reset**: If the NN consistently performs worse than $x$ generations ago, re-initialize a fraction of the population with new random weights.
+4. **Repeat**: Replace old population with new by updating player weights
+
+**Note**: Mutations are achieved by randomly adjusting the learning rate (and randomly in positive or negative direction) before being added to the weights. Crossover is achieved by returning the averaged the weights of each partner. Cloning is achieved by copying the weights directly to the cloned player.
+
+## Neural network structure
+TBD
 
 ## Current issues
 - Some Player class attributes are passed as arguments of type None - namely 'genes' and 'toughness'. This wouldn't be necessary if a proper reset() method is defined that re-initializes all attributes except the latter ones. My current implementation requires introducing new lists ('mutated_genes' and 'new_toughness'), which creates a bit of clutter that could be refactored.
