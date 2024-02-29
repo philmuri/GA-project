@@ -1,7 +1,7 @@
 import numpy as np
 import time
 import pygame as pg
-from constants import PLAYER_RADIUS, PLAYER_COLOR, PLAYER_START_HEIGHT, PLAYER_START_POS, JUMP_FORCE, HEIGHT, BASE_HEIGHT, GRAVITY, MUTATION_SIZE
+from constants import PLAYER_RADIUS, PLAYER_COLOR, PLAYER_DEATH_COLOR, PLAYER_START_HEIGHT, PLAYER_START_POS, JUMP_FORCE, HEIGHT, BASE_HEIGHT, GRAVITY, MUTATION_SIZE, OBSTACLE_SPEED
 from obstacle import Obstacle
 
 
@@ -26,16 +26,20 @@ class Player():
             self.weights_hidden = np.random.normal(0, scale=0.1, size=(3, 1))
 
     def draw(self, screen) -> None:  # NOTE: Possibly implement in main instead
-        pg.draw.circle(screen, PLAYER_COLOR,
-                       (PLAYER_START_POS, self.y), PLAYER_RADIUS)
+        if self.is_alive:
+            pg.draw.circle(screen, PLAYER_COLOR,
+                           (self.x, self.y), PLAYER_RADIUS)
+        else:
+            self.animation(screen)
 
     def update(self, obstacle: Obstacle) -> None:
-        # If AI toggled, handle AI jumping
-        if self.is_AI:
-            self.NN_update(obstacle)
-            if self.NN_jump():
-                # NOTE: If this doesn't work, add a cooldown on jumping (as in game_logic.py)
-                self.jump()
+        if self.is_alive:
+            # If AI toggled, handle AI jumping
+            if self.is_AI:
+                self.NN_update(obstacle)
+                if self.NN_jump():
+                    # NOTE: If this doesn't work, add a cooldown on jumping (as in game_logic.py)
+                    self.jump()
         # Handle ground collision and gravity
         if self.y >= HEIGHT - BASE_HEIGHT - self.radius and self.vy >= 0:
             self.y = HEIGHT - BASE_HEIGHT - self.radius
@@ -51,7 +55,6 @@ class Player():
         if self.is_AI:
             self.vy = self.jump_power
         else:
-            # NOTE: Should later be changed to constant JUMP_FORCE defined in main
             self.vy = JUMP_FORCE
 
     def is_colliding(self, obstacle: Obstacle):
@@ -66,11 +69,20 @@ class Player():
         dist = dx**2 + dy**2
         return (dist < self.radius**2) or (self.y - self.radius <= BASE_HEIGHT)
 
-    def NN_update(self, obstacle: Obstacle):  # AI player vision
+    def animation(self, screen):
+        if (self.x + self.radius >= 0) or self.radius >= 0:
+            self.x -= OBSTACLE_SPEED
+            self.radius -= self.radius // 10
+            pg.draw.circle(screen, PLAYER_DEATH_COLOR,
+                           (self.x, self.y), self.radius)
+        else:
+            self.x = -self.radius
+
+    def NN_update(self, obstacle: Obstacle):
         """
-        Updates player distances to ceiling and obstacles.
+        Updates player distances to ceiling and obstacles (AI player vision)
         """
-        self.dy = self.y - obstacle.y
+        self.dy = self.y - obstacle.y  # NOTE: Think about this more
         self.dx = obstacle.x - self.x
 
     def NN_jump(self):
@@ -88,7 +100,7 @@ class Player():
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
 
-    def kill(self):
+    def kill(self):  # please don't
         self.is_alive = False
         self.time_alive = round(time.time() - self.init_time, 3)
 
@@ -118,8 +130,4 @@ Two of the NN features are probably redundant as they are just redefinitions of 
 - self.jump_power is just self.vy 
 
 TBD: Make player stop moving when collided
-
-TBD: Obstacles are too easy to learn for AI; can simply spam jump consistently to stay hovering at fixed height
--> Solution: Randomize whether obstacle spawned is a "stalagmite" or "stalagtite"
-    => Add new methods in Obstacle class
 """
