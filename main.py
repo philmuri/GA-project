@@ -20,7 +20,7 @@ pg.display.set_caption('Obstacle Jumping')
 # -- Global Variables --
 game_running = True
 game_paused = False
-round_time = 0
+generation_clock = 0.0
 score = 0
 font = pg.font.SysFont(c.FONT_TYPE, c.FONT_SIZE)
 fontLarge = pg.font.SysFont(c.FONT_TYPE, c.FONT_SIZE * 2)
@@ -66,9 +66,9 @@ def draw(screen) -> None:
     pass
 
 
-def render_timer(screen, round_time: float) -> None:
+def render_timer(screen, generation_clock: float) -> None:
     font = pg.font.SysFont(c.FONT_TYPE, c.FONT_SIZE * 2)
-    text = font.render(f"{round_time:.1f}", True, c.FONT_COLOR)
+    text = font.render(f"{generation_clock:.1f}", True, c.FONT_COLOR)
     screen.blit(text, text.get_rect(center=(c.WIDTH//2, c.BASE_HEIGHT//2)))
 
 
@@ -107,7 +107,7 @@ while True:
         if not game_paused:
             # - Draw Background Elements + Render Text -
             draw(screen)
-            render_timer(screen, round_time=round_time)
+            render_timer(screen, generation_clock=generation_clock)
             render_info_text(screen, info=info_text)
 
             # - Update and Draw Players + Obstacle -
@@ -136,7 +136,7 @@ while True:
             pg.display.flip()
 
         game_tick = clock.tick(c.GAME_FPS)
-        round_time += game_tick / 1000
+        generation_clock += game_tick / 1000
 
     else:
         # this is inefficient for large population, but since population would rarely be > 100 it is of limited concern
@@ -165,6 +165,7 @@ while True:
 
         time.sleep(0.5)
         dead_players = 0
+        generation_clock = 0.0
         game_running = True
 
 # 2) keep the best bird, and extract their inputweights and hiddenweights using deepcopy from copy library

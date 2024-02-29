@@ -57,10 +57,14 @@ class Player():
     def is_colliding(self, obstacle: Obstacle):
         dx = PLAYER_START_POS - \
             max(obstacle.x, min(PLAYER_START_POS, obstacle.x + obstacle.width))
-        dy = self.y - \
-            max(obstacle.y, min(self.y, obstacle.y + obstacle.height))
+        if obstacle.category == 'bottom':
+            dy = self.y - \
+                max(obstacle.y, min(self.y, obstacle.y + obstacle.height))
+        else:
+            dy = self.y - \
+                max(obstacle.y - obstacle.height, min(self.y, obstacle.y))
         dist = dx**2 + dy**2
-        return (dist < self.radius**2) or (self.y <= BASE_HEIGHT)
+        return (dist < self.radius**2) or (self.y - self.radius <= BASE_HEIGHT)
 
     def NN_update(self, obstacle: Obstacle):  # AI player vision
         """
@@ -114,4 +118,8 @@ Two of the NN features are probably redundant as they are just redefinitions of 
 - self.jump_power is just self.vy 
 
 TBD: Make player stop moving when collided
+
+TBD: Obstacles are too easy to learn for AI; can simply spam jump consistently to stay hovering at fixed height
+-> Solution: Randomize whether obstacle spawned is a "stalagmite" or "stalagtite"
+    => Add new methods in Obstacle class
 """
