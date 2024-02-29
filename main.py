@@ -1,11 +1,13 @@
 import pygame as pg
-# import numpy as np
-# import time
-# import sys
+import numpy as np
+from heapq import nlargest
 import constants as c
 from player import Player
 from obstacle import Obstacle
-from typing import Dict
+from typing import Dict, List
+import sys
+import copy
+import time
 
 
 # -- Initialize Pygame --
@@ -26,8 +28,11 @@ info_text = {
     'Generation': 0,
     'Best Time': 0,
 }
+# - Data -
+all_best_times = []
+best_overall_time = 0
 # - AI Variables -
-population = []
+population: List[Player] = []
 dead_players = 0
 generation = 1
 init_input_genes = [[0, 0, 0], [0, 0, 0], [0, 0, 0],
@@ -42,16 +47,15 @@ def init() -> None:
             population.append(Player(is_AI=True))
 
 
-def restart():
-    # re-initailize obstacles and players
-    # genetic algorithm: upddate players with new weights andd mutations
-    # keep 2 best players without mutating them
-    # OR keep best player of current generation and best player overall
-    # 1/3 of population is cloned from top player in generation and mutated
-    # 1/3 of population is bred from top player and overall top player and mutated
-    # 1/3 - 2 of population is respawned if fitness score hasnt increased in some number of generations, else bred and mutated from top player and second best player
+def reset(obstacle: Obstacle, players: List[Player] | Player) -> None:
+    obstacle.__init__()
+    if c.is_AI and isinstance(players, List):
+        for _ in players:
+            _.__init__(is_AI=c.is_AI)
+    else:
+        players.__init__()
 
-    pass
+    # NOTE: Later replace this implementation with removing Player instances and creating new ones?
 
 
 def draw(screen) -> None:
@@ -85,62 +89,90 @@ init()
 user_player = Player()
 obstacle = Obstacle()
 
-while game_running:
-    for event in pg.event.get():
-        if event.type == pg.QUIT:
-            game_running = False
-            # NOTE: Save data at this stage
-        elif event.type == pg.KEYDOWN:
-            if event.key == pg.K_p:
-                game_paused = not game_paused
-            if event.key == pg.K_SPACE:
-                user_player.jump()
-
-    if not game_paused:
-        # - Draw Background Elements + Render Text -
-        draw(screen)
-        render_timer(screen, round_time=round_time)
-        render_info_text(screen, info=info_text)
-
-        # - Update and Draw Players + Obstacle -
-        obstacle.update()
-        if c.is_AI:
-            for _ in population:
-                _.update()
-                _.draw(screen)
-        else:
-            user_player.update()
-            user_player.draw(screen)
-        obstacle.draw(screen)
-
-        # - Handle Collisions -
-        if c.is_AI:
-            for _ in population:
-                if _.is_alive and _.is_colliding(obstacle=obstacle):
-                    _.kill()
-                    dead_players += 1
-            if dead_players == c.POPULATION_SIZE:
+while True:
+    if game_running:
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
                 game_running = False
-        else:
-            if user_player.is_colliding(obstacle=obstacle):
-                game_paused = True
-                user_player.kill()
+                # NOTE: Save data at this stage
+                pg.quit()
+                sys.exit()
 
-        pg.display.flip()
+            elif event.type == pg.KEYDOWN:
+                if event.key == pg.K_p:
+                    game_paused = not game_paused
+                if event.key == pg.K_SPACE:
+                    user_player.jump()
 
-    game_tick = clock.tick(c.GAME_FPS)
-    round_time += game_tick / 1000
+        if not game_paused:
+            # - Draw Background Elements + Render Text -
+            draw(screen)
+            render_timer(screen, round_time=round_time)
+            render_info_text(screen, info=info_text)
 
-else:
-    best_players = []
-    # 1) obtain best two players (id or from index in population) and best fitness score
+            # - Update and Draw Players + Obstacle -
+            obstacle.update()
+            if c.is_AI:
+                for _ in population:
+                    _.update(obstacle)
+                    _.draw(screen)
+            else:
+                user_player.update(obstacle)
+                user_player.draw(screen)
+            obstacle.draw(screen)
+            # - Handle Collisions -
+            if c.is_AI:
+                for _ in population:
+                    if _.is_alive and _.is_colliding(obstacle):
+                        _.kill()
+                        dead_players += 1
+                if dead_players == c.POPULATION_SIZE:
+                    game_running = False
+            else:
+                if user_player.is_colliding(obstacle):
+                    game_paused = True
+                    user_player.kill()
 
-    # 2) keep the best bird, and extract their inputweights and hiddenweights using deepcopy from copy library
-    # bestInputWeights = copy.deepcopy(population[best_player].inputWeights)
-    # bestHiddenWeights = copy.deepcopy(population[best_player].hiddenWeights)
+            pg.display.flip()
 
-    # 3) Update new highscores (best generation, best score, best fitness)
+        game_tick = clock.tick(c.GAME_FPS)
+        round_time += game_tick / 1000
 
-    # 4) Store the players to breed in their separate list using deecopy again
-    # best_players.append(copy.deepcopy(population[best_player]))
-    # population.pop(i)
+    else:
+        # this is inefficient for large population, but since population would rarely be > 100 it is of limited concern
+        # the benefit of this is more clear code
+        population = sorted(population, key=lambda player: player.fitness())
+
+        best_time = population[-1].time_alive
+        all_best_times.append(best_time)
+        best_overall_time = max(all_best_times)
+
+        best_input_weights = population[-1].weights_input
+        best_hidden_weights = population[-1].weights_hidden
+
+        print(f"Best input weights:\n {best_input_weights}")
+        print(f"Best hidden weights:\n {best_hidden_weights}")
+
+        # NOTE: With current implementation of reset(), it must be called
+        # BEFORE assigning new weights to population
+        reset(obstacle=obstacle, players=population)
+
+        # NOTE: For now, simple cloning + mutation of best player in generation
+        for _ in population:
+            _.weights_input = copy.deepcopy(best_input_weights)
+            _.weights_hidden = copy.deepcopy(best_hidden_weights)
+            _.mutate()
+
+        time.sleep(0.5)
+        dead_players = 0
+        game_running = True
+
+# 2) keep the best bird, and extract their inputweights and hiddenweights using deepcopy from copy library
+# bestInputWeights = copy.deepcopy(population[best_player].inputWeights)
+# bestHiddenWeights = copy.deepcopy(population[best_player].hiddenWeights)
+
+# 3) Update new highscores (best generation, best score, best fitness)
+
+# 4) Store the players to breed in their separate list using deecopy again
+# best_players.append(copy.deepcopy(population[best_player]))
+# population.pop(i)

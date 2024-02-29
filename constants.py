@@ -26,7 +26,8 @@ FONT_SIZE = 16
 FONT_TYPE = 'Calibri'
 
 # Constants: AI
-is_AI = False
+is_AI = True
 POPULATION_SIZE = 3
 MUTATION_RATE = 0.5
+MUTATION_SIZE = 1
 KEEP_PARENTS = 2
