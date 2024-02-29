@@ -11,7 +11,7 @@ class Player():
         self.y = PLAYER_START_HEIGHT
         self.vy = 0
         self.is_jumping = False
-        self.is_dead = False
+        self.is_alive = True
         self.init_time = time.time()
         self.time_alive = 0
         self.is_AI = is_AI
@@ -74,3 +74,7 @@ class Player():
 
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
+
+    def kill(self):
+        self.is_alive = False
+        self.time_alive = round(time.time() - self.init_time, 3)

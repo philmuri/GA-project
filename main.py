@@ -5,30 +5,34 @@ import pygame as pg
 import constants as c
 from player import Player
 from obstacle import Obstacle
+from typing import Dict
 
-
-init_input_genes = [[0, 0, 0], [0, 0, 0], [0, 0, 0],
-                    [0, 0, 0], [0, 0, 0]]  # for now 5 neurons
-init_hidden_genes = [[0], [0], [0]]  # 3 neuron hidden layer
-
-# Global Variables
-game_running = True
-game_paused = False
-population = []
-dead_players = 0
-
-round_time = 0
-score = 0
-# font = pg.font.SysFont(FONT_TYPE, FONT_SIZE)
-# fontLarge = pg.font.SysFont(FONT_TYPE, FONT_SIZE * 2)
-
-generation = 1
 
 # -- Initialize Pygame --
 pg.init()
 clock = pg.time.Clock()
 screen = pg.display.set_mode((c.WIDTH, c.HEIGHT))
 pg.display.set_caption('Obstacle Jumping')
+
+
+# -- Global Variables --
+game_running = True
+game_paused = False
+round_time = 0
+score = 0
+font = pg.font.SysFont(c.FONT_TYPE, c.FONT_SIZE)
+fontLarge = pg.font.SysFont(c.FONT_TYPE, c.FONT_SIZE * 2)
+info_text = {
+    'Generation': 0,
+    'Best Time': 0,
+}
+# - AI Variables -
+population = []
+dead_players = 0
+generation = 1
+init_input_genes = [[0, 0, 0], [0, 0, 0], [0, 0, 0],
+                    [0, 0, 0], [0, 0, 0]]  # for now 5 neurons
+init_hidden_genes = [[0], [0], [0]]  # 3 neuron hidden layer
 
 
 # -- FUNCTIONS --
@@ -64,6 +68,18 @@ def render_timer(screen, round_time: float) -> None:
     screen.blit(text, text.get_rect(center=(c.WIDTH//2, c.BASE_HEIGHT//2)))
 
 
+def render_info_text(screen, info: Dict) -> None:
+    for n, (k, v) in enumerate(info.items()):
+        if isinstance(v, float):
+            text = font.render(f"{k}: {v:.2f}", True, c.FONT_COLOR)
+        else:
+            text = font.render(f"{k}: {v}", True, c.FONT_COLOR)
+        text_x = c.WIDTH - text.get_width() - 20
+        text_y = c.BASE_HEIGHT + 20
+        y_offset = text_y + n * c.FONT_SIZE
+        screen.blit(text, (text_x, y_offset))
+
+
 # -- Main Game Loop --
 init()
 user_player = Player()
@@ -84,6 +100,7 @@ while game_running:
         # - Draw Background Elements + Render Text -
         draw(screen)
         render_timer(screen, round_time=round_time)
+        render_info_text(screen, info=info_text)
 
         # - Update and Draw Players + Obstacle -
         obstacle.update()
@@ -100,20 +117,14 @@ while game_running:
         if c.is_AI:
             for _ in population:
                 if _.is_alive and _.is_colliding(obstacle=obstacle):
-                    _.is_alive = False
+                    _.kill()
                     dead_players += 1
+            if dead_players == c.POPULATION_SIZE:
+                game_running = False
         else:
             if user_player.is_colliding(obstacle=obstacle):
                 game_paused = True
-
-        # - Handle all players dead -
-        # for player in population:
-        #    if player.is_alive:
-        # handle player-object collision
-        #        pass
-
-        # if dead_players == len(POPULATION_SIZE):
-        #    game_running = False
+                user_player.kill()
 
         pg.display.flip()
 
@@ -122,7 +133,6 @@ while game_running:
 
 else:
     best_players = []
-    print(c.BASE_COLOR, c.OBSTACLE_COLOR, c.BG_COLOR)
     # 1) obtain best two players (id or from index in population) and best fitness score
 
     # 2) keep the best bird, and extract their inputweights and hiddenweights using deepcopy from copy library
