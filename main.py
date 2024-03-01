@@ -256,12 +256,16 @@ while True:
         time.sleep(0.5)
         game_running = True
 
-# 2) keep the best bird, and extract their inputweights and hiddenweights using deepcopy from copy library
-# bestInputWeights = copy.deepcopy(population[best_player].inputWeights)
-# bestHiddenWeights = copy.deepcopy(population[best_player].hiddenWeights)
 
-# 3) Update new highscores (best generation, best score, best fitness)
+"""
+List of things to add:
+- (4) Storing dictionairy data as .csv before quitting game
+- (3!) User-mode and AI-mode toggle (through command line for now; later add UI)
+- (1*) FPS speed-up and slow-down on button presses
+- (2*) Remove jump_power as a gene? Try it
+- (5!) Make game even more challenging, e.g. by adding door keys that need to be collected before player can pass through obstacle slit
 
-# 4) Store the players to breed in their separate list using deecopy again
-# best_players.append(copy.deepcopy(population[best_player]))
-# population.pop(i)
+(!): Challenging
+(*): Easy
+(n): Priority list
+"""
