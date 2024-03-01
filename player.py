@@ -1,7 +1,8 @@
 import numpy as np
+import random
 import time
 import pygame as pg
-from constants import PLAYER_RADIUS, PLAYER_COLOR, PLAYER_DEATH_COLOR, PLAYER_START_HEIGHT, PLAYER_START_POS, JUMP_FORCE, HEIGHT, BASE_HEIGHT, GRAVITY, MUTATION_SIZE, OBSTACLE_SPEED
+from constants import PLAYER_RADIUS, PLAYER_COLOR, PLAYER_DEATH_COLOR, PLAYER_START_HEIGHT, PLAYER_START_POS, JUMP_FORCE, HEIGHT, BASE_HEIGHT, GRAVITY, MUTATION_SIZE, OBSTACLE_SPEED, MUTATION_CHANCE
 from obstacle import Obstacle
 
 
@@ -24,7 +25,7 @@ class Player():
             self.dx = 0
             # NOTE: consider removing since it is directly correlated with self.vy
             self.jump_power = -10
-            self.weights_input = np.random.normal(0, scale=0.1, size=(6, 3))
+            self.weights_input = np.random.normal(0, scale=0.1, size=(5, 3))
             self.weights_hidden = np.random.normal(0, scale=0.1, size=(3, 1))
 
     def draw(self, screen) -> None:  # NOTE: Possibly implement in main instead
@@ -96,8 +97,11 @@ class Player():
 
     def NN_jump(self):
         bias = -0.5  # NOTE: Just -0.5 for now
-        genes = [self.y, self.vy, self.dx,
-                 self.dy_bottom, self.dy_top, self.jump_power]
+        genes = [self.y,
+                 self.vy,
+                 self.dx,
+                 self.dy_bottom,
+                 self.dy_top]
         hidden_layer_in = np.dot(genes, self.weights_input)
         hidden_layer_out = self.sigmoid(hidden_layer_in)
         output_layer_in = np.dot(hidden_layer_out, self.weights_hidden)
@@ -121,11 +125,13 @@ class Player():
     def mutate(self):
         for nw in range(len(self.weights_input)):
             for w in range(len(self.weights_input[nw])):
-                self.weights_input[nw][w] += self.mutation_rate()
+                if random.random() <= MUTATION_CHANCE:
+                    self.weights_input[nw][w] += self.mutation_rate()
 
         for nw in range(len(self.weights_hidden)):
             for w in range(len(self.weights_hidden[nw])):
-                self.weights_hidden[nw][w] += self.mutation_rate()
+                if random.random() <= MUTATION_CHANCE:
+                    self.weights_hidden[nw][w] += self.mutation_rate()
 
     def mutation_rate(self):
         # "dynamic" random "learning rate" to simulate mutation

@@ -29,9 +29,11 @@ FONT_TYPE = 'Calibri'
 # Constants: AI
 is_AI = True
 POPULATION_SIZE = 30
-MUTATION_RATE = 0.5  # currently unused
+MUTATION_CHANCE = 0.5  # mutation probability per weight
 MUTATION_SIZE = 1
 KEEP_PARENTS = 2
 # The sum of the following must be below 1:
 CROSSOVER_RATE = 0.3
 CROSS_GENERATION_RATE = 0.3
+# number of generations before randomizing genes for part of population:
+RESET_THRESHOLD = 10

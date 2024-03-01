@@ -277,21 +277,23 @@ while True:
 
             # - Cloning or Resetting -
             else:
-                # NOTE: TBD Add fractional population reset if no improvement
-                _.weights_input = copy.deepcopy(population[-1].weights_input)
-                _.weights_hidden = copy.deepcopy(population[-1].weights_hidden)
-                _.mutate()
+                if generation % c.RESET_THRESHOLD == 0:  # randomize if above generation thresholds
+                    _.__init__(is_AI=c.is_AI)
+                else:
+                    _.weights_input = copy.deepcopy(
+                        population[-1].weights_input)
+                    _.weights_hidden = copy.deepcopy(
+                        population[-1].weights_hidden)
+                    _.mutate()
 
         # - Update/Reset Other Elements -
         dead_players = []
         generation_clock = 0.0
         generation += 1
         obstacle.score = 0
-
         info_text['Generation'] = generation
         info_text['Best Time'] = best_overall_time
 
-        time.sleep(0.5)
         game_running = True
 
 
