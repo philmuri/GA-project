@@ -21,13 +21,15 @@ pg.display.set_caption('Obstacle Jumping')
 # -- Global Variables --
 game_running = True
 game_paused = False
+game_fps = c.GAME_FPS
 generation_clock = 0.0
 score = 0
 font = pg.font.SysFont(c.FONT_TYPE, c.FONT_SIZE)
 fontLarge = pg.font.SysFont(c.FONT_TYPE, c.FONT_SIZE * 2)
 info_text = {
-    'Generation': 0,
+    'Generation': 1,
     'Best Time': 0,
+    'FPS': game_fps,
 }
 # - Data -
 best_players = {
@@ -41,7 +43,7 @@ best_overall_iw = None
 best_overall_hw = None
 # - AI Variables -
 population: List[Player] = []
-dead_players = 0
+dead_players = []
 generation = 1
 init_input_genes = [[0, 0, 0], [0, 0, 0], [0, 0, 0],
                     [0, 0, 0], [0, 0, 0]]  # for now 5 neurons
@@ -154,6 +156,12 @@ while True:
                     game_paused = not game_paused
                 if event.key == pg.K_SPACE:
                     user_player.jump()
+                if event.key == pg.K_e:
+                    game_fps += 5
+                    info_text['FPS'] = game_fps
+                if event.key == pg.K_q:
+                    game_fps -= 5
+                    info_text['FPS'] = game_fps
 
         if not game_paused:
             # - Draw Background Elements + Render Text -
@@ -178,17 +186,23 @@ while True:
                 for _ in population:
                     if _.is_alive and _.is_colliding(obstacle):
                         _.kill()
-                        dead_players += 1
-                if dead_players == c.POPULATION_SIZE:
-                    game_running = False
+                        dead_players.append(_)
+                if len(dead_players) == c.POPULATION_SIZE:
+                    if dead_players[-1].is_animating:  # last dead player
+                        pass
+                    else:
+                        game_running = False
             else:
                 if user_player.is_colliding(obstacle):
-                    game_paused = True
                     user_player.kill()
+                    if user_player.is_animating:
+                        pass
+                    else:
+                        game_paused = True
 
             pg.display.flip()
 
-        game_tick = clock.tick(c.GAME_FPS)
+        game_tick = clock.tick(game_fps) * (game_fps / 60)
         generation_clock += game_tick / 1000
 
     else:
@@ -250,9 +264,14 @@ while True:
                 _.weights_hidden = copy.deepcopy(population[-1].weights_hidden)
                 _.mutate()
 
-        dead_players = 0
+        # - Update/Reset Other Elements -
+        dead_players = []
         generation_clock = 0.0
         generation += 1
+
+        info_text['Generation'] = generation
+        info_text['Best Time'] = best_overall_time
+
         time.sleep(0.5)
         game_running = True
 

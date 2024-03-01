@@ -13,6 +13,7 @@ class Player():
         self.vy = 0
         self.is_jumping = False
         self.is_alive = True
+        self.is_animating = False  # enabled by kill(), disabled by animation()
         self.init_time = time.time()
         self.time_alive = 0
         self.is_AI = is_AI
@@ -73,11 +74,12 @@ class Player():
     def animation(self, screen):
         if (self.x + self.radius >= 0) or self.radius >= 0:
             self.x -= OBSTACLE_SPEED
-            self.radius -= self.radius // 10
+            self.radius -= 1
             pg.draw.circle(screen, PLAYER_DEATH_COLOR,
                            (self.x, self.y), self.radius)
         else:
             self.x = -self.radius
+            self.is_animating = False
 
     def NN_update(self, obstacle: Obstacle):
         """
@@ -110,6 +112,7 @@ class Player():
 
     def kill(self):  # please don't
         self.is_alive = False
+        self.is_animating = True
         self.time_alive = round(time.time() - self.init_time, 3)
 
     def fitness(self):
