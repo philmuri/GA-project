@@ -2,7 +2,7 @@ import numpy as np
 import random
 import time
 import pygame as pg
-from constants import PLAYER_RADIUS, PLAYER_COLOR, PLAYER_DEATH_COLOR, PLAYER_START_HEIGHT, PLAYER_START_POS, JUMP_FORCE, HEIGHT, BASE_HEIGHT, GRAVITY, MUTATION_SIZE, OBSTACLE_SPEED, MUTATION_CHANCE
+from constants import PLAYER_RADIUS, PLAYER_COLOR, PLAYER_DEATH_COLOR, PLAYER_START_HEIGHT, PLAYER_START_POS, JUMP_FORCE, HEIGHT, BASE_HEIGHT, GRAVITY, MUTATION_SIZE, OBSTACLE_SPEED, MUTATION_CHANCE, PLAYER_JUMP_COOLDOWN, GAME_FPS
 from obstacle import Obstacle
 
 
@@ -12,7 +12,8 @@ class Player():
         self.x = PLAYER_START_POS
         self.y = PLAYER_START_HEIGHT
         self.vy = 0
-        self.is_jumping = False
+        self.jump_time = time.time()
+        self.jump_cd = PLAYER_JUMP_COOLDOWN
         self.is_alive = True
         self.is_animating = False  # enabled by kill(), disabled by animation()
         self.init_time = time.time()
@@ -23,42 +24,36 @@ class Player():
             self.dy_bottom = 0
             self.dy_top = 0
             self.dx = 0
-            # NOTE: consider removing since it is directly correlated with self.vy
-            self.jump_power = -10
             self.weights_input = np.random.normal(0, scale=0.1, size=(5, 3))
             self.weights_hidden = np.random.normal(0, scale=0.1, size=(3, 1))
 
-    def draw(self, screen) -> None:  # NOTE: Possibly implement in main instead
+    def draw(self, screen) -> None:
         if self.is_alive:
             pg.draw.circle(screen, PLAYER_COLOR,
                            (self.x, self.y), PLAYER_RADIUS)
         else:
             self.animation(screen)
 
-    def update(self, obstacle: Obstacle) -> None:
+    def update(self, obstacle: Obstacle, fps: int = GAME_FPS) -> None:
         if self.is_alive:
             # If AI toggled, handle AI jumping
             if self.is_AI:
                 self.NN_update(obstacle)
                 if self.NN_jump():
-                    # NOTE: If this doesn't work, add a cooldown on jumping (as in game_logic.py)
-                    self.jump()
+                    self.jump(fps)
         # Handle ground collision and gravity
         if self.y >= HEIGHT - BASE_HEIGHT - self.radius and self.vy >= 0:
             self.y = HEIGHT - BASE_HEIGHT - self.radius
             self.vy = 0
-            self.is_jumping = False
         else:
             self.vy += GRAVITY
         # Update kinematics
         self.y += self.vy
 
-    def jump(self) -> None:
-        self.is_jumping = True
-        if self.is_AI:
-            self.vy = self.jump_power
-        else:
+    def jump(self, fps: int = GAME_FPS) -> None:
+        if time.time() - self.jump_time >= self.jump_cd * 60 / fps:
             self.vy = JUMP_FORCE
+            self.jump_time = time.time()
 
     def is_colliding(self, obstacle: Obstacle):
         dx = PLAYER_START_POS - \
@@ -136,15 +131,6 @@ class Player():
     def mutation_rate(self):
         # "dynamic" random "learning rate" to simulate mutation
         # NOTE: Consider if adding regularization possible
-        learning_rate = MUTATION_SIZE * 0.005 * np.random.randint(-25, 25)
+        # NOTE: Consider if adaptive step-size / learning rate is possible
+        learning_rate = MUTATION_SIZE * np.random.uniform(-0.25, 0.25)
         return learning_rate
-
-
-"""
-NOTE:
-Two of the NN features are probably redundant as they are just redefinitions of other features:
-- self.dyc is just self.y - BASE_HEIGHT -- REMOVED
-- self.jump_power is just self.vy 
-
-TBD: Make player stop moving when collided
-"""

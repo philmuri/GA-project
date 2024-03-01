@@ -164,7 +164,7 @@ while True:
                 if event.key == pg.K_p:
                     game_paused = not game_paused
                 if event.key == pg.K_SPACE:
-                    user_player.jump()
+                    user_player.jump(fps=game_fps)
                 if event.key == pg.K_e:
                     game_fps += 5
                     info_text['FPS'] = game_fps
@@ -190,10 +190,10 @@ while True:
             if c.is_AI:
                 display_overlaps(screen, population=population, min_overlaps=2)
                 for _ in population:
-                    _.update(obstacle)
+                    _.update(obstacle, fps=game_fps)
                     _.draw(screen)
             else:
-                user_player.update(obstacle)
+                user_player.update(obstacle, fps=game_fps)
                 user_player.draw(screen)
             obstacle.draw(screen)
 
@@ -277,7 +277,8 @@ while True:
 
             # - Cloning or Resetting -
             else:
-                if generation % c.RESET_THRESHOLD == 0:  # randomize if above generation thresholds
+                # randomize if above generation threshold with no performance improvement
+                if (generation % c.RESET_THRESHOLD == 0) and (best_players['time_alive'][-c.RESET_THRESHOLD] > best_players['time_alive'][-1]):
                     _.__init__(is_AI=c.is_AI)
                 else:
                     _.weights_input = copy.deepcopy(
@@ -299,11 +300,9 @@ while True:
 
 """
 List of things to add:
-- (4) Storing dictionairy data as .csv before quitting game
-- (3!) User-mode and AI-mode toggle (through command line for now; later add UI)
-- (2*) Remove jump_power as a gene? Try it
-- (6!) Make game even more challenging, e.g. by adding door keys that need to be collected before player can pass through obstacle slit
-- (5) Global cooldown on jumping to make game harder
+- (1) Storing dictionairy data as .csv before quitting game, along with a copy of constants.py settings. Name files by number starting from 1 and up
+- (2!) User-mode and AI-mode toggle (through command line for now; later add UI)
+- (3!) Make game even more challenging, e.g. by adding door keys that need to be collected before player can pass through obstacle slit
 
 (!): Challenging
 (*): Easy
