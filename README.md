@@ -3,6 +3,12 @@
 ## Introduction
 In this project I will incorporate a genetic algorithm made from scratch to train a player to jump over obstacles. This is done in a python framework using `pygame` for the game development part. The project will include a single-player mode where the user can play the game and compare their performance to the AI.
 
+## Guide
+To run the game, navigate to the project folder and type:
+```
+python -m src.main
+```
+
 ## Features
 The player actions include:
 - **Jumping**: An instantaneous vertical velocity component is added onto the vertical position of the character.

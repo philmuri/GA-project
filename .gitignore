@@ -1,9 +1,10 @@
 *.pyc
 __pycache__/
 
+data/
+notebooks/
+tests/
+
 build/
 dist/
 *.spec
-
-# data files stored in folder named GA_data
-GA_data/

@@ -1,13 +1,11 @@
 import pygame as pg
 import numpy as np
-from heapq import nlargest
-import constants as c
-from player import Player
-from obstacle import Obstacle
+import src.common.settings as c
+from src.common.player import Player
+from src.common.obstacle import Obstacle
 from typing import Dict, List
 import sys
 import copy
-import time
 import random
 
 
@@ -131,7 +129,7 @@ def render_info_text(screen, info: Dict) -> None:
         screen.blit(text, (text_x, y_offset))
 
 
-# - Other Functions -
+# - Utility Functions -
 def nested_mean(nested_list1, nested_list2):
     """Perform component-wise averaging of two nested lists, provided
     their shapes are identical.
@@ -303,6 +301,8 @@ List of things to add:
 - (1) Storing dictionairy data as .csv before quitting game, along with a copy of constants.py settings. Name files by number starting from 1 and up
 - (2!) User-mode and AI-mode toggle (through command line for now; later add UI)
 - (3!) Make game even more challenging, e.g. by adding door keys that need to be collected before player can pass through obstacle slit
+- (4) Add requirements.txt
+- (5) Potentially generate documentation with mkdocs or sphinx
 
 (!): Challenging
 (*): Easy
