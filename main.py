@@ -66,6 +66,33 @@ def draw(screen) -> None:
     pass
 
 
+def check_overlap(player1: Player, player2: Player) -> bool:
+    return all([player1.y == player2.y])
+
+
+def display_overlaps(screen, population: List[Player], min_overlaps: int) -> None:
+    # NOTE: This is ~O(n^2) (no overlaps) and up to ~O(n^3) (many overlaps)
+    overlap_groups = []
+    text_pos_registry = set()
+    for i in range(len(population)):
+        overlap_group = [population[i]]
+
+        for j in range(i+1, len(population)):
+            if check_overlap(population[i], population[j]):
+                overlap_group.append(population[j])
+
+        if len(overlap_group) > min_overlaps:
+            overlap_groups.append(overlap_group)
+
+    for group in overlap_groups:
+        text_pos = (group[0].x - 2.5 * group[0].radius,
+                    group[0].y)
+        if text_pos not in text_pos_registry:
+            text = font.render(f"x{len(group)}", True, c.OBSTACLE_COLOR)
+            screen.blit(text, text_pos)
+            text_pos_registry.add(text_pos)
+
+
 def render_timer(screen, generation_clock: float) -> None:
     font = pg.font.SysFont(c.FONT_TYPE, c.FONT_SIZE * 2)
     text = font.render(f"{generation_clock:.1f}", True, c.FONT_COLOR)
@@ -113,6 +140,7 @@ while True:
             # - Update and Draw Players + Obstacle -
             obstacle.update()
             if c.is_AI:
+                display_overlaps(screen, population=population, min_overlaps=2)
                 for _ in population:
                     _.update(obstacle)
                     _.draw(screen)

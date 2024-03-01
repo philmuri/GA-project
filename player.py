@@ -18,11 +18,12 @@ class Player():
         self.is_AI = is_AI
         # AI-only attributes:
         if self.is_AI:
-            self.dy = 0
+            self.dy_bottom = 0
+            self.dy_top = 0
             self.dx = 0
             # NOTE: consider removing since it is directly correlated with self.vy
             self.jump_power = -10
-            self.weights_input = np.random.normal(0, scale=0.1, size=(4, 3))
+            self.weights_input = np.random.normal(0, scale=0.1, size=(6, 3))
             self.weights_hidden = np.random.normal(0, scale=0.1, size=(3, 1))
 
     def draw(self, screen) -> None:  # NOTE: Possibly implement in main instead
@@ -82,12 +83,19 @@ class Player():
         """
         Updates player distances to ceiling and obstacles (AI player vision)
         """
-        self.dy = self.y - obstacle.y  # NOTE: Think about this more
         self.dx = obstacle.x - self.x
+        # NOTE: Think more about the stuff below. Draw sketch
+        if obstacle.category == 'bottom':
+            self.dy_top = self.y - BASE_HEIGHT
+            self.dy_bottom = obstacle.y - self.y
+        else:
+            self.dy_top = obstacle.y - self.y
+            self.dy_bottom = HEIGHT - self.y
 
     def NN_jump(self):
         bias = -0.5  # NOTE: Just -0.5 for now
-        genes = [self.y, self.vy, self.dy, self.jump_power]
+        genes = [self.y, self.vy, self.dx,
+                 self.dy_bottom, self.dy_top, self.jump_power]
         hidden_layer_in = np.dot(genes, self.weights_input)
         hidden_layer_out = self.sigmoid(hidden_layer_in)
         output_layer_in = np.dot(hidden_layer_out, self.weights_hidden)
