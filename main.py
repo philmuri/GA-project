@@ -263,7 +263,9 @@ List of things to add:
 - (3!) User-mode and AI-mode toggle (through command line for now; later add UI)
 - (1*) FPS speed-up and slow-down on button presses
 - (2*) Remove jump_power as a gene? Try it
-- (5!) Make game even more challenging, e.g. by adding door keys that need to be collected before player can pass through obstacle slit
+- (6!) Make game even more challenging, e.g. by adding door keys that need to be collected before player can pass through obstacle slit
+- (0) Finish the text-info display
+- (5) Global cooldown on jumping to make game harder
 
 (!): Challenging
 (*): Easy
