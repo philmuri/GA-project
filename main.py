@@ -28,6 +28,7 @@ font = pg.font.SysFont(c.FONT_TYPE, c.FONT_SIZE)
 fontLarge = pg.font.SysFont(c.FONT_TYPE, c.FONT_SIZE * 2)
 info_text = {
     'Generation': 1,
+    'Best Score': 0,
     'Best Time': 0,
     'FPS': game_fps,
 }
@@ -37,11 +38,13 @@ best_players = {
     'generation': [],
     'weights_input': [],
     'weights_hidden': [],
-    'time_alive': []
+    'time_alive': [],
+    'highscore': []
 }
 best_overall_time = 0
 best_overall_iw = None
 best_overall_hw = None
+overall_highscore = 0
 # - AI Variables -
 population: List[Player] = []
 dead_players = []
@@ -106,9 +109,14 @@ def display_overlaps(screen, population: List[Player], min_overlaps: int) -> Non
 
 
 def render_timer(screen, generation_clock: float) -> None:
-    font = pg.font.SysFont(c.FONT_TYPE, c.FONT_SIZE * 2)
-    text = font.render(f"{generation_clock:.1f}", True, c.FONT_COLOR)
+    text = fontLarge.render(f"{generation_clock:.1f}", True, c.FONT_COLOR)
     screen.blit(text, text.get_rect(center=(c.WIDTH//2, c.BASE_HEIGHT//2)))
+
+
+def render_score(screen, score: int) -> None:
+    text = fontLarge.render(f"Score: {score}", True, c.FONT_COLOR)
+    screen.blit(text, text.get_rect(
+        center=(c.WIDTH//2, c.HEIGHT - c.BASE_HEIGHT//2)))
 
 
 def render_info_text(screen, info: Dict) -> None:
@@ -170,11 +178,15 @@ while True:
             # - Draw Background Elements + Render Text -
             draw(screen)
             render_timer(screen, generation_clock=generation_clock)
+            render_score(screen, score=obstacle.score)
             if info_toggle:
                 render_info_text(screen, info=info_text)
 
             # - Update and Draw Players + Obstacle -
             obstacle.update()
+            if obstacle.score > overall_highscore:
+                info_text['Best Score'] = obstacle.score
+
             if c.is_AI:
                 display_overlaps(screen, population=population, min_overlaps=2)
                 for _ in population:
@@ -221,12 +233,14 @@ while True:
         best_players['weights_hidden'].append(
             copy.deepcopy(best_player.weights_hidden))
         best_players['time_alive'].append(best_player.time_alive)
+        best_players['highscore'].append(obstacle.score)
 
         best_overall_index = best_players['time_alive'].index(
             max(best_players['time_alive']))
         best_overall_time = best_players['time_alive'][best_overall_index]
         best_overall_iw = best_players['weights_input'][best_overall_index]
         best_overall_hw = best_players['weights_hidden'][best_overall_index]
+        overall_highscore = max(best_players['highscore'])
 
         # NOTE: With current implementation of reset(), it must be called
         # BEFORE assigning new weights to population
@@ -272,6 +286,7 @@ while True:
         dead_players = []
         generation_clock = 0.0
         generation += 1
+        obstacle.score = 0
 
         info_text['Generation'] = generation
         info_text['Best Time'] = best_overall_time
@@ -284,10 +299,8 @@ while True:
 List of things to add:
 - (4) Storing dictionairy data as .csv before quitting game
 - (3!) User-mode and AI-mode toggle (through command line for now; later add UI)
-- (1*) FPS speed-up and slow-down on button presses
 - (2*) Remove jump_power as a gene? Try it
 - (6!) Make game even more challenging, e.g. by adding door keys that need to be collected before player can pass through obstacle slit
-- (0) Finish the text-info display
 - (5) Global cooldown on jumping to make game harder
 
 (!): Challenging

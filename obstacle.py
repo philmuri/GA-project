@@ -5,6 +5,8 @@ import random
 
 
 class Obstacle():
+    score: int = 0
+
     def __init__(self) -> None:
         self.category = random.choice(['bottom', 'top'])
         self.width = OBSTACLE_WIDTH
@@ -26,5 +28,6 @@ class Obstacle():
 
     def update(self) -> None:
         if self.x + self.width <= 0:
+            self.score += 1
             self.__init__()  # bad practice, but works
         self.x -= OBSTACLE_SPEED
