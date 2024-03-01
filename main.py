@@ -8,6 +8,7 @@ from typing import Dict, List
 import sys
 import copy
 import time
+import random
 
 
 # -- Initialize Pygame --
@@ -29,8 +30,15 @@ info_text = {
     'Best Time': 0,
 }
 # - Data -
-all_best_times = []
+best_players = {
+    'generation': [],
+    'weights_input': [],
+    'weights_hidden': [],
+    'time_alive': []
+}
 best_overall_time = 0
+best_overall_iw = None
+best_overall_hw = None
 # - AI Variables -
 population: List[Player] = []
 dead_players = 0
@@ -72,6 +80,7 @@ def check_overlap(player1: Player, player2: Player) -> bool:
 
 def display_overlaps(screen, population: List[Player], min_overlaps: int) -> None:
     # NOTE: This is ~O(n^2) (no overlaps) and up to ~O(n^3) (many overlaps)
+    # NOTE: Could increase performance a ton by only checking this if players are on ground level
     overlap_groups = []
     text_pos_registry = set()
     for i in range(len(population)):
@@ -111,6 +120,21 @@ def render_info_text(screen, info: Dict) -> None:
         screen.blit(text, (text_x, y_offset))
 
 
+# - Other Functions -
+def nested_mean(nested_list1, nested_list2):
+    """Perform component-wise averaging of two nested lists, provided
+    their shapes are identical.
+
+    Args:
+        nested_list1: First nested list.
+        nested_list2: Second nested list.
+
+    Returns:
+        The resulting component-wise averaged nested list.
+    """
+    return (np.array(nested_list1) + np.array(nested_list2)) / 2
+
+
 # -- Main Game Loop --
 init()
 user_player = Player()
@@ -148,6 +172,7 @@ while True:
                 user_player.update(obstacle)
                 user_player.draw(screen)
             obstacle.draw(screen)
+
             # - Handle Collisions -
             if c.is_AI:
                 for _ in population:
@@ -171,29 +196,64 @@ while True:
         # the benefit of this is more clear code
         population = sorted(population, key=lambda player: player.fitness())
 
-        best_time = population[-1].time_alive
-        all_best_times.append(best_time)
-        best_overall_time = max(all_best_times)
+        best_player = population[-1]
+        best_players['generation'].append(generation)
+        best_players['weights_input'].append(
+            copy.deepcopy(best_player.weights_input))
+        best_players['weights_hidden'].append(
+            copy.deepcopy(best_player.weights_hidden))
+        best_players['time_alive'].append(best_player.time_alive)
 
-        best_input_weights = population[-1].weights_input
-        best_hidden_weights = population[-1].weights_hidden
-
-        print(f"Best input weights:\n {best_input_weights}")
-        print(f"Best hidden weights:\n {best_hidden_weights}")
+        best_overall_index = best_players['time_alive'].index(
+            max(best_players['time_alive']))
+        best_overall_time = best_players['time_alive'][best_overall_index]
+        best_overall_iw = best_players['weights_input'][best_overall_index]
+        best_overall_hw = best_players['weights_hidden'][best_overall_index]
 
         # NOTE: With current implementation of reset(), it must be called
         # BEFORE assigning new weights to population
         reset(obstacle=obstacle, players=population)
 
-        # NOTE: For now, simple cloning + mutation of best player in generation
-        for _ in population:
-            _.weights_input = copy.deepcopy(best_input_weights)
-            _.weights_hidden = copy.deepcopy(best_hidden_weights)
-            _.mutate()
+        # -- Crossover and Mutating --
+        for i, _ in enumerate(population):
+            # - Standard crossover among KEEP_PARENTS parents -
+            if i <= int(len(population) * c.CROSSOVER_RATE):
+                parents_iw = random.sample(
+                    [population[-j-1].weights_input for j in range(c.KEEP_PARENTS)], 2)
+                parents_hw = random.sample(
+                    [population[-j-1].weights_hidden for j in range(c.KEEP_PARENTS)], 2)
 
-        time.sleep(0.5)
+                child_iw = nested_mean(parents_iw[0], parents_iw[1])
+                child_hw = nested_mean(parents_hw[0], parents_hw[1])
+
+                # NOTE: Must deepcopy for nested lists
+                _.weights_input = copy.deepcopy(child_iw)
+                _.weights_hidden = copy.deepcopy(child_hw)
+                _.mutate()
+
+            # - Cross-generation crossover -
+            elif i <= int(len(population) * (c.CROSS_GENERATION_RATE + c.CROSSOVER_RATE)):
+                parents_iw = [population[-1].weights_input, best_overall_iw]
+                parents_hw = [population[-1].weights_hidden, best_overall_hw]
+
+                child_iw = nested_mean(parents_iw[0], parents_iw[1])
+                child_hw = nested_mean(parents_hw[0], parents_hw[1])
+
+                _.weights_input = copy.deepcopy(child_iw)
+                _.weights_hidden = copy.deepcopy(child_hw)
+                _.mutate()
+
+            # - Cloning or Resetting -
+            else:
+                # NOTE: TBD Add fractional population reset if no improvement
+                _.weights_input = copy.deepcopy(population[-1].weights_input)
+                _.weights_hidden = copy.deepcopy(population[-1].weights_hidden)
+                _.mutate()
+
         dead_players = 0
         generation_clock = 0.0
+        generation += 1
+        time.sleep(0.5)
         game_running = True
 
 # 2) keep the best bird, and extract their inputweights and hiddenweights using deepcopy from copy library
