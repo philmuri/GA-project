@@ -31,6 +31,7 @@ info_text = {
     'Best Time': 0,
     'FPS': game_fps,
 }
+info_toggle = True
 # - Data -
 best_players = {
     'generation': [],
@@ -113,9 +114,9 @@ def render_timer(screen, generation_clock: float) -> None:
 def render_info_text(screen, info: Dict) -> None:
     for n, (k, v) in enumerate(info.items()):
         if isinstance(v, float):
-            text = font.render(f"{k}: {v:.2f}", True, c.FONT_COLOR)
+            text = font.render(f"{k}: {v:.2f}", True, c.FONT_INFO_COLOR)
         else:
-            text = font.render(f"{k}: {v}", True, c.FONT_COLOR)
+            text = font.render(f"{k}: {v}", True, c.FONT_INFO_COLOR)
         text_x = c.WIDTH - text.get_width() - 20
         text_y = c.BASE_HEIGHT + 20
         y_offset = text_y + n * c.FONT_SIZE
@@ -162,12 +163,15 @@ while True:
                 if event.key == pg.K_q:
                     game_fps -= 5
                     info_text['FPS'] = game_fps
+                if event.key == pg.K_i:
+                    info_toggle = not info_toggle
 
         if not game_paused:
             # - Draw Background Elements + Render Text -
             draw(screen)
             render_timer(screen, generation_clock=generation_clock)
-            render_info_text(screen, info=info_text)
+            if info_toggle:
+                render_info_text(screen, info=info_text)
 
             # - Update and Draw Players + Obstacle -
             obstacle.update()

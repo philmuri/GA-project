@@ -19,16 +19,17 @@ PLAYER_DEATH_COLOR = (255, 0, 0)
 OBSTACLE_SPEED = 20
 GRAVITY = 0.5
 JUMP_FORCE = -10
-GAME_FPS = 90
+GAME_FPS = 60
 
 FONT_COLOR = (128, 128, 128)
+FONT_INFO_COLOR = (255, 0, 0)
 FONT_SIZE = 16
 FONT_TYPE = 'Calibri'
 
 # Constants: AI
 is_AI = True
 POPULATION_SIZE = 30
-MUTATION_RATE = 0.5
+MUTATION_RATE = 0.5  # currently unused
 MUTATION_SIZE = 1
 KEEP_PARENTS = 2
 # The sum of the following must be below 1:
