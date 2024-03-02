@@ -3,7 +3,7 @@ import numpy as np
 import src.common.settings as c
 from src.common.player import Player
 from src.common.obstacle import Obstacle
-from typing import Dict, List, Any
+from typing import Dict, List
 import sys
 import copy
 import random
@@ -24,13 +24,13 @@ generation_clock = 0.0
 score = 0
 font = pg.font.SysFont(c.FONT_TYPE, c.FONT_SIZE)
 fontLarge = pg.font.SysFont(c.FONT_TYPE, c.FONT_SIZE * 2)
-info_text = {  # initalize explicitly for clarity with type hints
+info_text = {
     'Generation': 1,
     'Best Score': 0,
     'Best Time': 0,
-    'Success Rate': Dict[str, Any],
-    'k-Success Rate': Dict[str, Any],
     'FPS': game_fps,
+    'Success Rate': Dict[str, float] | None,
+    'k-Success Rate': Dict[str, float] | None
 }
 info_toggle = True
 # - Logic -
@@ -133,10 +133,10 @@ def render_info_text(screen, info: Dict) -> None:
     for n, (k, v) in enumerate(info.items()):
         if k == 'Best Time':
             text = font.render(f"{k}: {v:.2f}", True, c.FONT_INFO_COLOR)
-        elif k == 'Success Rate':
+        elif k == 'Success Rate' and generation > 1:
             text = font.render(
                 f"Average Success Rate: {100*v['mean']:.1f}% ± {100*v['std']:.1f}%", True, c.FONT_INFO_COLOR)
-        elif k == 'k-Success Rate':
+        elif k == 'k-Success Rate' and generation > 1:
             if generation >= c.EM_KSUCCESS:
                 text = font.render(
                     f"Success Rate (last {c.EM_KSUCCESS} gens): {100*v['mean']:.1f}% ± {100*v['std']:.1f}%", True, c.FONT_INFO_COLOR)
@@ -151,7 +151,7 @@ def render_info_text(screen, info: Dict) -> None:
         screen.blit(text, (text_x, y_offset))
 
 
-def get_success_metric(gen_length: int = generation - 1) -> Dict | None:
+def get_success_metric(gen_length: int = generation - 1) -> Dict[str, float] | None:
     if generation >= gen_length:
         rates = []
         for _ in population:
