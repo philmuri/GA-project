@@ -5,8 +5,6 @@ import random
 
 
 class Obstacle():
-    score: int = 0
-
     def __init__(self) -> None:
         self.category = random.choice(['bottom', 'top'])
         self.width = OBSTACLE_WIDTH
@@ -27,7 +25,12 @@ class Obstacle():
                          (self.x, self.y - self.height, self.width, self.height))
 
     def update(self) -> None:
-        if self.x + self.width <= 0:
-            self.score += 1
+        if self.is_outside():
             self.__init__()  # bad practice, but works
         self.x -= OBSTACLE_SPEED
+
+    def is_outside(self) -> bool:
+        if self.x + self.width <= 0:
+            return True
+        else:
+            return False

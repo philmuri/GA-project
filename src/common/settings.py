@@ -38,3 +38,6 @@ CROSSOVER_RATE = 0.3
 CROSS_GENERATION_RATE = 0.3
 # number of generations before partly randomizing genes if no performance improvement since
 RESET_THRESHOLD = 10
+# threshold in range [0,1] to pass prediction for player to jump. determined empirically to achieve a
+# balance between cautiosness and aggressiveness in jumping
+DECISION_THRESHOLD = 0.5

@@ -31,6 +31,8 @@ info_text = {
     'FPS': game_fps,
 }
 info_toggle = True
+# - Logic -
+obstacle_flags: List[bool] = [False] * c.POPULATION_SIZE
 # - Data -
 best_players = {
     'generation': [],
@@ -43,13 +45,14 @@ best_overall_time = 0
 best_overall_iw = None
 best_overall_hw = None
 overall_highscore = 0
+overall_deaths = 0
+all_scores = []
+gen_scores = []
+gen_score = 0
 # - AI Variables -
 population: List[Player] = []
 dead_players = []
 generation = 1
-init_input_genes = [[0, 0, 0], [0, 0, 0], [0, 0, 0],
-                    [0, 0, 0], [0, 0, 0]]  # for now 5 neurons
-init_hidden_genes = [[0], [0], [0]]  # 3 neuron hidden layer
 
 
 # -- FUNCTIONS --
@@ -129,6 +132,12 @@ def render_info_text(screen, info: Dict) -> None:
         screen.blit(text, (text_x, y_offset))
 
 
+def get_overall_success(score: int, deaths: int):
+    # score: a list of scores for EACH player p over ALL generations n, of size n*p
+    # deaths: total deaths as counted by overall_deaths
+    return (1 / (1 + (score / deaths)))
+
+
 # - Utility Functions -
 def nested_mean(nested_list1, nested_list2):
     """Perform component-wise averaging of two nested lists, provided
@@ -176,20 +185,28 @@ while True:
             # - Draw Background Elements + Render Text -
             draw(screen)
             render_timer(screen, generation_clock=generation_clock)
-            render_score(screen, score=obstacle.score)
+            render_score(screen, score=gen_score)
             if info_toggle:
                 render_info_text(screen, info=info_text)
 
             # - Update and Draw Players + Obstacle -
             obstacle.update()
-            if obstacle.score > overall_highscore:
-                info_text['Best Score'] = obstacle.score
+            if obstacle.is_outside():
+                obstacle_flags = [False] * c.POPULATION_SIZE
+
+            if gen_score > overall_highscore:
+                info_text['Best Score'] = gen_score
 
             if c.is_AI:
                 display_overlaps(screen, population=population, min_overlaps=2)
-                for _ in population:
+                for i, _ in enumerate(population):
                     _.update(obstacle, fps=game_fps)
                     _.draw(screen)
+                    if _.x >= + obstacle.x + obstacle.width and not obstacle_flags[i]:
+                        _.score += 1
+                        obstacle_flags[i] = True
+                    if _.score > gen_score:
+                        gen_score = _.score
             else:
                 user_player.update(obstacle, fps=game_fps)
                 user_player.draw(screen)
@@ -201,6 +218,8 @@ while True:
                     if _.is_alive and _.is_colliding(obstacle):
                         _.kill()
                         dead_players.append(_)
+                        overall_deaths += 1
+                        gen_scores.append(_.score)
                 if len(dead_players) == c.POPULATION_SIZE:
                     if dead_players[-1].is_animating:  # last dead player
                         pass
@@ -231,7 +250,7 @@ while True:
         best_players['weights_hidden'].append(
             copy.deepcopy(best_player.weights_hidden))
         best_players['time_alive'].append(best_player.time_alive)
-        best_players['highscore'].append(obstacle.score)
+        best_players['highscore'].append(max(gen_scores))
 
         best_overall_index = best_players['time_alive'].index(
             max(best_players['time_alive']))
@@ -239,6 +258,7 @@ while True:
         best_overall_iw = best_players['weights_input'][best_overall_index]
         best_overall_hw = best_players['weights_hidden'][best_overall_index]
         overall_highscore = max(best_players['highscore'])
+        all_scores.append(gen_scores)
 
         # NOTE: With current implementation of reset(), it must be called
         # BEFORE assigning new weights to population
@@ -289,7 +309,8 @@ while True:
         dead_players = []
         generation_clock = 0.0
         generation += 1
-        obstacle.score = 0
+        gen_scores = []
+        gen_score = 0
         info_text['Generation'] = generation
         info_text['Best Time'] = best_overall_time
 
@@ -301,8 +322,8 @@ List of things to add:
 - (1) Storing dictionairy data as .csv before quitting game, along with a copy of constants.py settings. Name files by number starting from 1 and up
 - (2!) User-mode and AI-mode toggle (through command line for now; later add UI)
 - (3!) Make game even more challenging, e.g. by adding door keys that need to be collected before player can pass through obstacle slit
-- (4) Add requirements.txt
-- (5) Potentially generate documentation with mkdocs or sphinx
+- (0) Incorporate more complex evaluation metrics like average time survived, time survived distribution for generation + total (plot on screen?), total % of succesful jumps (total score / total deaths)
+
 
 (!): Challenging
 (*): Easy

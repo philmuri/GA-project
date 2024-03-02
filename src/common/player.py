@@ -2,7 +2,7 @@ import numpy as np
 import random
 import time
 import pygame as pg
-from src.common.settings import PLAYER_RADIUS, PLAYER_COLOR, PLAYER_DEATH_COLOR, PLAYER_START_HEIGHT, PLAYER_START_POS, JUMP_FORCE, HEIGHT, BASE_HEIGHT, GRAVITY, MUTATION_SIZE, OBSTACLE_SPEED, MUTATION_CHANCE, PLAYER_JUMP_COOLDOWN, GAME_FPS
+from src.common.settings import PLAYER_RADIUS, PLAYER_COLOR, PLAYER_DEATH_COLOR, PLAYER_START_HEIGHT, PLAYER_START_POS, JUMP_FORCE, HEIGHT, BASE_HEIGHT, GRAVITY, MUTATION_SIZE, OBSTACLE_SPEED, MUTATION_CHANCE, PLAYER_JUMP_COOLDOWN, GAME_FPS, DECISION_THRESHOLD
 from src.common.obstacle import Obstacle
 
 
@@ -18,6 +18,7 @@ class Player():
         self.is_animating = False  # enabled by kill(), disabled by animation()
         self.init_time = time.time()
         self.time_alive = 0
+        self.score = 0
         self.is_AI = is_AI
         # AI-only attributes:
         if self.is_AI:
@@ -91,7 +92,6 @@ class Player():
             self.dy_bottom = HEIGHT - self.y
 
     def NN_jump(self):
-        bias = -0.5  # NOTE: Just -0.5 for now
         genes = [self.y,
                  self.vy,
                  self.dx,
@@ -101,7 +101,7 @@ class Player():
         hidden_layer_out = self.sigmoid(hidden_layer_in)
         output_layer_in = np.dot(hidden_layer_out, self.weights_hidden)
         prediction = self.sigmoid(output_layer_in)
-        if prediction + bias > 0:
+        if prediction > DECISION_THRESHOLD:
             return True
         else:
             return False
