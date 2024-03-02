@@ -3,7 +3,7 @@ import numpy as np
 import src.common.settings as c
 from src.common.player import Player
 from src.common.obstacle import Obstacle
-from typing import Dict, List
+from typing import Dict, List, Any
 import sys
 import copy
 import random
@@ -24,10 +24,12 @@ generation_clock = 0.0
 score = 0
 font = pg.font.SysFont(c.FONT_TYPE, c.FONT_SIZE)
 fontLarge = pg.font.SysFont(c.FONT_TYPE, c.FONT_SIZE * 2)
-info_text = {
+info_text = {  # initalize explicitly for clarity with type hints
     'Generation': 1,
     'Best Score': 0,
     'Best Time': 0,
+    'Success Rate': Dict[str, Any],
+    'k-Success Rate': Dict[str, Any],
     'FPS': game_fps,
 }
 info_toggle = True
@@ -36,6 +38,7 @@ obstacle_flags: List[bool] = [False] * c.POPULATION_SIZE
 # - Data -
 best_players = {
     'generation': [],
+    'player_id': [],
     'weights_input': [],
     'weights_hidden': [],
     'time_alive': [],
@@ -46,9 +49,14 @@ best_overall_iw = None
 best_overall_hw = None
 overall_highscore = 0
 overall_deaths = 0
-all_scores = []
-gen_scores = []
+# player scores accessed via player_scores['scores'][player_idx][generation]
+player_scores = {
+    'player_id': [0] * c.POPULATION_SIZE,
+    'scores': [[] for _ in range(c.POPULATION_SIZE)]
+}
 gen_score = 0
+gen_scores = []
+
 # - AI Variables -
 population: List[Player] = []
 dead_players = []
@@ -58,8 +66,9 @@ generation = 1
 # -- FUNCTIONS --
 def init() -> None:
     if c.is_AI:
-        for _ in range(c.POPULATION_SIZE):
+        for i in range(c.POPULATION_SIZE):
             population.append(Player(is_AI=True))
+            player_scores['player_id'][i] = id(population[i])
 
 
 def reset(obstacle: Obstacle, players: List[Player] | Player) -> None:
@@ -122,8 +131,18 @@ def render_score(screen, score: int) -> None:
 
 def render_info_text(screen, info: Dict) -> None:
     for n, (k, v) in enumerate(info.items()):
-        if isinstance(v, float):
+        if k == 'Best Time':
             text = font.render(f"{k}: {v:.2f}", True, c.FONT_INFO_COLOR)
+        elif k == 'Success Rate':
+            text = font.render(
+                f"Average Success Rate: {100*v['mean']:.1f}% ± {100*v['std']:.1f}%", True, c.FONT_INFO_COLOR)
+        elif k == 'k-Success Rate':
+            if generation >= c.EM_KSUCCESS:
+                text = font.render(
+                    f"Success Rate (last {c.EM_KSUCCESS} gens): {100*v['mean']:.1f}% ± {100*v['std']:.1f}%", True, c.FONT_INFO_COLOR)
+            else:
+                text = font.render(
+                    f"Success Rate (last {c.EM_KSUCCESS} gens): Awaiting data", True, c.FONT_INFO_COLOR)
         else:
             text = font.render(f"{k}: {v}", True, c.FONT_INFO_COLOR)
         text_x = c.WIDTH - text.get_width() - 20
@@ -132,10 +151,39 @@ def render_info_text(screen, info: Dict) -> None:
         screen.blit(text, (text_x, y_offset))
 
 
-def get_overall_success(score: int, deaths: int):
-    # score: a list of scores for EACH player p over ALL generations n, of size n*p
-    # deaths: total deaths as counted by overall_deaths
-    return (1 / (1 + (score / deaths)))
+def get_success_metric(gen_length: int = generation - 1) -> Dict | None:
+    if generation >= gen_length:
+        rates = []
+        for _ in population:
+            rates.append(get_player_success(
+                player_id=id(_), gen_length=gen_length))
+        result = {
+            'mean': np.mean(rates),
+            'min': min(rates),
+            'max': max(rates),
+            'std': np.std(rates)
+        }
+        return result
+
+
+def get_player_success(player_id: int, gen_length: int = generation - 1) -> float | None:
+    """Evaluation Metric: Player Jump Success Rate
+    Computes the fractional obstacle jump success rate for a particular player across generations.
+
+    Args:
+        player_id (int): Unique memory address identifier of Player object.
+        gen_length (int): Number of past generations to include for evaluating success rate.
+
+    Returns:
+        float | None: The obstacle jump success rate of the player.
+    """
+    if generation >= gen_length:
+        if player_id in player_scores['player_id']:
+            idx = player_scores['player_id'].index(player_id)
+            history = player_scores['scores'][idx][-gen_length:]
+            return 1 / (1 + (sum(history) / overall_deaths))
+        else:
+            print(f"Player ID {player_id} not found")
 
 
 # - Utility Functions -
@@ -189,13 +237,14 @@ while True:
             if info_toggle:
                 render_info_text(screen, info=info_text)
 
+            # - Update Info -
+            if gen_score > overall_highscore:
+                info_text['Best Score'] = gen_score
+
             # - Update and Draw Players + Obstacle -
             obstacle.update()
             if obstacle.is_outside():
                 obstacle_flags = [False] * c.POPULATION_SIZE
-
-            if gen_score > overall_highscore:
-                info_text['Best Score'] = gen_score
 
             if c.is_AI:
                 display_overlaps(screen, population=population, min_overlaps=2)
@@ -214,12 +263,17 @@ while True:
 
             # - Handle Collisions -
             if c.is_AI:
-                for _ in population:
+                for i, _ in enumerate(population):
                     if _.is_alive and _.is_colliding(obstacle):
                         _.kill()
                         dead_players.append(_)
                         overall_deaths += 1
                         gen_scores.append(_.score)
+
+                        # normally not needed if order of players in population is not changed:
+                        if id(_) in player_scores['player_id']:
+                            player_scores['scores'][i].append(_.score)
+
                 if len(dead_players) == c.POPULATION_SIZE:
                     if dead_players[-1].is_animating:  # last dead player
                         pass
@@ -241,6 +295,8 @@ while True:
     else:
         # this is inefficient for large population, but since population would rarely be > 100 it is of limited concern
         # the benefit of this is more clear code
+
+        # NOTE: This is kinda stupid, since dead_players is already sorted by time_alive
         population = sorted(population, key=lambda player: player.fitness())
 
         best_player = population[-1]
@@ -258,7 +314,6 @@ while True:
         best_overall_iw = best_players['weights_input'][best_overall_index]
         best_overall_hw = best_players['weights_hidden'][best_overall_index]
         overall_highscore = max(best_players['highscore'])
-        all_scores.append(gen_scores)
 
         # NOTE: With current implementation of reset(), it must be called
         # BEFORE assigning new weights to population
@@ -313,6 +368,9 @@ while True:
         gen_score = 0
         info_text['Generation'] = generation
         info_text['Best Time'] = best_overall_time
+        info_text['Success Rate'] = get_success_metric()
+        info_text['k-Success Rate'] = get_success_metric(
+            gen_length=c.EM_KSUCCESS)
 
         game_running = True
 
@@ -322,7 +380,7 @@ List of things to add:
 - (1) Storing dictionairy data as .csv before quitting game, along with a copy of constants.py settings. Name files by number starting from 1 and up
 - (2!) User-mode and AI-mode toggle (through command line for now; later add UI)
 - (3!) Make game even more challenging, e.g. by adding door keys that need to be collected before player can pass through obstacle slit
-- (0) Incorporate more complex evaluation metrics like average time survived, time survived distribution for generation + total (plot on screen?), total % of succesful jumps (total score / total deaths)
+- (0) Incorporate more complex evaluation metrics like average time survived, time survived distribution for generation + total (plot on screen?)
 
 
 (!): Challenging

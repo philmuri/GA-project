@@ -18,7 +18,7 @@ PLAYER_START_POS = 80
 PLAYER_START_HEIGHT = HEIGHT // 2
 PLAYER_RADIUS = 20
 # tied to GAME_FPS; actual cd is = PLAYER_JUMP_COOLDOWN when GAME_FPS = 60
-PLAYER_JUMP_COOLDOWN = 0.35
+PLAYER_JUMP_COOLDOWN = 0.5
 PLAYER_COLOR = (128, 128, 128)
 PLAYER_DEATH_COLOR = (255, 0, 0)
 
@@ -29,7 +29,7 @@ FONT_TYPE = 'Calibri'
 
 # Constants: AI
 is_AI = True
-POPULATION_SIZE = 50
+POPULATION_SIZE = 3
 MUTATION_CHANCE = 0.5  # mutation probability per weight
 MUTATION_SIZE = 1  # value of 1 gives up to +-0.25 to weights
 KEEP_PARENTS = 2
@@ -41,3 +41,5 @@ RESET_THRESHOLD = 10
 # threshold in range [0,1] to pass prediction for player to jump. determined empirically to achieve a
 # balance between cautiosness and aggressiveness in jumping
 DECISION_THRESHOLD = 0.5
+# Evaluation metrics:
+EM_KSUCCESS = 10  # last k generations for jump success rate evaluation
