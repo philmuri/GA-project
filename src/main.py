@@ -353,7 +353,7 @@ while True:
         # -- Crossover and Mutating --
         for i, _ in enumerate(population):
             # - Standard crossover among KEEP_PARENTS parents -
-            if i <= int(len(population) * c.CROSSOVER_RATE):
+            if i < int(len(population) * c.CROSSOVER_RATE):
                 parents_iw = random.sample(
                     [population[-j-1].weights_input for j in range(c.KEEP_PARENTS)], 2)
                 parents_hw = random.sample(
@@ -368,7 +368,7 @@ while True:
                 _.mutate()
 
             # - Cross-generation crossover -
-            elif i <= int(len(population) * (c.CROSS_GENERATION_RATE + c.CROSSOVER_RATE)):
+            elif i < int(len(population) * (c.CROSS_GENERATION_RATE + c.CROSSOVER_RATE)):
                 parents_iw = [population[-1].weights_input, best_overall_iw]
                 parents_hw = [population[-1].weights_hidden, best_overall_hw]
 
@@ -385,10 +385,8 @@ while True:
                 if (generation % c.RESET_THRESHOLD == 0) and (best_players['time_alive'][-c.RESET_THRESHOLD] > best_players['time_alive'][-1]):
                     _.__init__(is_AI=c.is_AI)
                 else:
-                    _.weights_input = copy.deepcopy(
-                        population[-1].weights_input)
-                    _.weights_hidden = copy.deepcopy(
-                        population[-1].weights_hidden)
+                    _.weights_input = copy.deepcopy(best_overall_iw)
+                    _.weights_hidden = copy.deepcopy(best_overall_hw)
                     _.mutate()
 
         # - Update/Reset Other Elements -

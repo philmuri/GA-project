@@ -10,18 +10,18 @@ BASE_COLOR = (0, 0, 0)
 OBSTACLE_COLOR = (0, 0, 0)
 GATE_CLOSED_COLOR = (60, 60, 60)
 KEY_COLOR = (0, 255, 0)
-KEY_SIZE = 50
+KEY_SIZE = 80
 
 OBSTACLE_SPEED = 5
 GRAVITY = 0.5
 JUMP_FORCE = -10
+PLAYER_JUMP_COOLDOWN = 0.25
 GAME_FPS = 90
 
 PLAYER_START_POS = 70
 PLAYER_START_HEIGHT = HEIGHT // 2
 PLAYER_RADIUS = 20
 # PLAYER_JUMP_COOLDOWN tied to GAME_FPS; actual cd is = PLAYER_JUMP_COOLDOWN when GAME_FPS = 60
-PLAYER_JUMP_COOLDOWN = 0.25
 PLAYER_COLOR = (128, 128, 128)
 PLAYER_DEATH_COLOR = (255, 0, 0)
 
@@ -33,13 +33,13 @@ FONT_TYPE = 'Calibri'
 # - Constants: AI -
 is_AI = True
 MAX_GENERATIONS = 100
-POPULATION_SIZE = 5
+POPULATION_SIZE = 50
 # - Mutation & Crossover -
-MUTATION_CHANCE = 0.5  # mutation probability per weight
+MUTATION_CHANCE = 0.2  # mutation probability per weight
 MUTATION_SIZE = 0.5  # value of 1 gives up to +-0.25 to weights
 KEEP_PARENTS = 2
-CROSSOVER_RATE = 0.3
-CROSS_GENERATION_RATE = 0.3
+CROSSOVER_RATE = 0.0
+CROSS_GENERATION_RATE = 0.0
 # NOTE: The remainder 1 - CROSSOVER_RATE - CROSS_GENERATION_RATE is for cloning and culling
 RESET_THRESHOLD = 10  # partially reset population genes after some generations
 # - Other -
