@@ -16,6 +16,8 @@ The player actions include:
 - **Gravity**: A constant downward acceleration.
 - **Obstacles**: Player collision with obstacles will lead to a loss and will define performance in terms of time survived before a collision.
 
+Game objective consists of two parts: Surviving as long as possible while scoring points for passing obstacles, and collecting as many keys as possible.
+
 ## Workflow for the GA part
 Here I have summarized the steps involved in the training phase:
 1. **Initialization**: Define GA features/genes/NN inputs and fitness function and initialize weights

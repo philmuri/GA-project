@@ -266,7 +266,7 @@ while True:
             if c.is_AI:
                 display_overlaps(screen, population=population, min_overlaps=2)
                 for i, _ in enumerate(population):
-                    _.update(obstacle, fps=game_fps)
+                    _.update(obstacle=obstacle, key=key, fps=game_fps)
                     _.draw(screen)
                     if _.x >= + obstacle.x + obstacle.width and not obstacle_flags[i]:
                         _.score += 1
@@ -274,7 +274,7 @@ while True:
                     if _.score > gen_score:
                         gen_score = _.score
             else:
-                user_player.update(obstacle, fps=game_fps)
+                user_player.update(obstacle=obstacle, key=key, fps=game_fps)
                 user_player.draw(screen)
             obstacle.draw(screen)
             gate.draw(screen)
@@ -305,6 +305,9 @@ while True:
                     else:
                         game_running = False
             else:
+                if user_player.is_touching(key):
+                    key.is_collected = True
+                    gate.is_open = True
                 if user_player.is_colliding(obstacle=obstacle, gate=gate):
                     user_player.kill()
                     if user_player.is_animating:
@@ -407,10 +410,10 @@ while True:
 
 """
 List of things to add:
+- (0!) New performance metric: Keys collected by player. Incorporate this in the now multi-objective fitness function in Player class
 - (1) Storing dictionairy data as .csv before quitting game, along with a copy of constants.py settings. Name files by number starting from 1 and up
-- (2!) User-mode and AI-mode toggle (through command line for now; later add UI)
-- (3!) Make game even more challenging, e.g. by adding door keys that need to be collected before player can pass through obstacle slit
-- (0) Incorporate more complex evaluation metrics like average time survived, time survived distribution for generation + total (plot on screen?)
+- (2) User-mode and AI-mode toggle (through command line for now; later add UI)
+- (3!) Incorporate more complex evaluation metrics like average time survived, time survived distribution for generation + total (plot on screen?)
 
 
 (!): Challenging

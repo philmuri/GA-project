@@ -2,7 +2,7 @@ import numpy as np
 import random
 import time
 import pygame as pg
-from src.common.settings import PLAYER_RADIUS, PLAYER_COLOR, PLAYER_DEATH_COLOR, PLAYER_START_HEIGHT, PLAYER_START_POS, JUMP_FORCE, HEIGHT, BASE_HEIGHT, GRAVITY, MUTATION_SIZE, OBSTACLE_SPEED, MUTATION_CHANCE, PLAYER_JUMP_COOLDOWN, GAME_FPS, DECISION_THRESHOLD
+from src.common.settings import PLAYER_RADIUS, PLAYER_COLOR, PLAYER_DEATH_COLOR, PLAYER_START_HEIGHT, PLAYER_START_POS, JUMP_FORCE, HEIGHT, BASE_HEIGHT, GRAVITY, MUTATION_SIZE, OBSTACLE_SPEED, MUTATION_CHANCE, PLAYER_JUMP_COOLDOWN, GAME_FPS, DECISION_THRESHOLD, FITNESS_WEIGHT_SCORE, FITNESS_WEIGHT_KEYSCORE
 from src.common.obstacle import Obstacle
 from src.common.gate import Gate
 from src.common.key import Key
@@ -21,14 +21,16 @@ class Player():
         self.init_time = time.time()
         self.time_alive = 0
         self.score = 0
-        self.is_AI = is_AI
+        self.keyscore = 0
+        self.is_AI = is_AI  # NOTE: bit silly to define as new attribute
         # AI-only attributes:
         if self.is_AI:
             self.dy_bottom = 0
             self.dy_top = 0
             self.dx = 0
-            self.dy_ground = 0
-            self.weights_input = np.random.normal(0, scale=0.1, size=(6, 4))
+            self.dy_key = 0
+            self.dx_key = 0
+            self.weights_input = np.random.normal(0, scale=0.1, size=(7, 4))
             self.weights_hidden = np.random.normal(0, scale=0.1, size=(4, 1))
 
     def draw(self, screen) -> None:
@@ -38,11 +40,11 @@ class Player():
         else:
             self.animation(screen)
 
-    def update(self, obstacle: Obstacle, fps: int = GAME_FPS) -> None:
+    def update(self, obstacle: Obstacle, key: Key, fps: int = GAME_FPS) -> None:
         if self.is_alive:
             # If AI toggled, handle AI jumping
             if self.is_AI:
-                self.NN_update(obstacle)
+                self.NN_update(obstacle, key)
                 if self.NN_jump():
                     self.jump(fps)
         # Handle ground collision and gravity
@@ -74,13 +76,15 @@ class Player():
                 dy = self.y - \
                     max(obstacle.y - obstacle.height, min(self.y, obstacle.y))
 
-        return (dx**2 + dy**2 < self.radius**2) or (self.y - self.radius <= BASE_HEIGHT)
+        return (dx**2 + dy**2 <= self.radius**2) or (self.y - self.radius <= BASE_HEIGHT) or (self.y + self.radius >= HEIGHT - BASE_HEIGHT)
 
     def is_touching(self, key: Key):
-        dx = self.x - \
-            max(key.x, min(self.x, key.x + key.size))
-        dy = self.y - max(key.y, min(self.y, key.y + key.size))
-        return (dx**2 + dy**2 <= self.radius**2)
+        if self.is_AI:
+            return (self.dx_key**2 + self.dy_key**2 <= self.radius**2)
+        else:
+            dx = self.x - max(key.x, min(self.x, key.x + key.size))
+            dy = self.y - max(key.y, min(self.y, key.y + key.size))
+            return (dx**2 + dy**2 <= self.radius**2)
 
     def animation(self, screen):
         if (self.x + self.radius >= 0) or self.radius >= 0:
@@ -92,12 +96,14 @@ class Player():
             self.x = -self.radius
             self.is_animating = False
 
-    def NN_update(self, obstacle: Obstacle):
+    def NN_update(self, obstacle: Obstacle, key: Key):
         """
         Updates player distances to ceiling and obstacles (AI player vision)
         """
         self.dx = obstacle.x - self.x
-        self.dy_ground = HEIGHT - BASE_HEIGHT - self.y
+        self.dx_key = self.x - max(key.x, min(self.x, key.x + key.size))
+        self.dy_key = self.y - max(key.y, min(self.y, key.y + key.size))
+
         # NOTE: Think more about the stuff below. Draw sketch
         if obstacle.category == 'bottom':
             self.dy_top = self.y - BASE_HEIGHT
@@ -112,7 +118,8 @@ class Player():
                  self.dx,
                  self.dy_bottom,
                  self.dy_top,
-                 self.dy_ground]
+                 self.dx_key,
+                 self.dy_key]
         hidden_layer_in = np.dot(genes, self.weights_input)
         hidden_layer_out = self.sigmoid(hidden_layer_in)
         output_layer_in = np.dot(hidden_layer_out, self.weights_hidden)
@@ -129,9 +136,6 @@ class Player():
         self.is_alive = False
         self.is_animating = True
         self.time_alive = round(time.time() - self.init_time, 3)
-
-    def fitness(self):  # NOTE: unused
-        return self.time_alive
 
     def mutate(self):
         for nw in range(len(self.weights_input)):
@@ -150,3 +154,11 @@ class Player():
         # NOTE: Consider if adaptive step-size / learning rate is possible
         learning_rate = MUTATION_SIZE * np.random.uniform(-0.25, 0.25)
         return learning_rate
+
+    def fitness(self):
+        # Returns the normalized weighted sum of performance metrics
+        # These include:
+        #   Score (essentially the normalized time alive)
+        #   Keys collected
+        # Player that collects the key is awarded more points
+        return (FITNESS_WEIGHT_SCORE * self.score + FITNESS_WEIGHT_KEYSCORE * self.keyscore)

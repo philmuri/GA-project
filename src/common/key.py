@@ -1,14 +1,15 @@
 import pygame as pg
 import numpy as np
-from src.common.settings import KEY_COLOR, KEY_SIZE, PLAYER_START_POS, HEIGHT, WIDTH, BASE_HEIGHT, OBSTACLE_SPEED
+from src.common.settings import KEY_COLOR, KEY_SIZE, HEIGHT, WIDTH, OBSTACLE_SPEED
 from src.common.obstacle import Obstacle
 
 
 class Key():
     def __init__(self) -> None:
-        self.x = np.random.randint(PLAYER_START_POS + 100, WIDTH - 100)
-        self.y = np.random.randint(BASE_HEIGHT + 50, HEIGHT - BASE_HEIGHT - 50)
         self.size = KEY_SIZE
+        # key spawns randomly in the inner 33% part of screen dimensions
+        self.x = np.random.randint(WIDTH // 3, 2 * WIDTH // 3)
+        self.y = np.random.randint(HEIGHT // 3, 2 * HEIGHT // 3)
         self.is_collected = False
 
     def draw(self, screen) -> None:
