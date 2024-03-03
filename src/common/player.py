@@ -2,7 +2,7 @@ import numpy as np
 import random
 import time
 import pygame as pg
-from src.common.settings import PLAYER_RADIUS, PLAYER_COLOR, PLAYER_DEATH_COLOR, PLAYER_START_HEIGHT, PLAYER_START_POS, JUMP_FORCE, HEIGHT, BASE_HEIGHT, GRAVITY, MUTATION_SIZE, OBSTACLE_SPEED, MUTATION_CHANCE, PLAYER_JUMP_COOLDOWN, GAME_FPS, DECISION_THRESHOLD, FITNESS_WEIGHT_SCORE, FITNESS_WEIGHT_KEYSCORE
+from src.common.settings import PLAYER_RADIUS, PLAYER_COLOR, PLAYER_DEATH_COLOR, PLAYER_START_HEIGHT, PLAYER_START_POS, JUMP_FORCE, HEIGHT, BASE_HEIGHT, GRAVITY, MUTATION_SIZE, OBSTACLE_SPEED, MUTATION_CHANCE, PLAYER_JUMP_COOLDOWN, GAME_FPS, DECISION_THRESHOLD, FITNESS_WEIGHT_ALIVE, FITNESS_WEIGHT_KEYSCORE, WIDTH
 from src.common.obstacle import Obstacle
 from src.common.gate import Gate
 from src.common.key import Key
@@ -22,6 +22,7 @@ class Player():
         self.time_alive = 0
         self.score = 0
         self.keyscore = 0
+        self.has_key = False
         self.is_AI = is_AI  # NOTE: bit silly to define as new attribute
         # AI-only attributes:
         if self.is_AI:
@@ -41,6 +42,8 @@ class Player():
             self.animation(screen)
 
     def update(self, obstacle: Obstacle, key: Key, fps: int = GAME_FPS) -> None:
+        if self.x >= obstacle.x + obstacle.width:
+            self.has_key = False
         if self.is_alive:
             # If AI toggled, handle AI jumping
             if self.is_AI:
@@ -61,14 +64,20 @@ class Player():
             self.vy = JUMP_FORCE
             self.jump_time = time.time()
 
-    def is_colliding(self, obstacle: Obstacle, gate: Gate):
+    def is_colliding(self, obstacle: Obstacle, gate: Gate) -> bool:
+        # 1: Check if gate is open
         if not gate.is_open:
             dx = obstacle.x - self.x
             dy = 0
-
+        # 2: If open, check if player has keey
+        elif not self.has_key:
+            dx = obstacle.x - self.x
+            dy = 0
+        # 3: If yes, gate will not collide
         else:
             dx = self.x - \
                 max(obstacle.x, min(self.x, obstacle.x + obstacle.width))
+
             if obstacle.category == 'bottom':
                 dy = self.y - \
                     max(obstacle.y, min(self.y, obstacle.y + obstacle.height))
@@ -78,22 +87,18 @@ class Player():
 
         return (dx**2 + dy**2 <= self.radius**2) or (self.y - self.radius <= BASE_HEIGHT) or (self.y + self.radius >= HEIGHT - BASE_HEIGHT)
 
-    def is_touching(self, key: Key):
-        if self.is_AI:
-            return (self.dx_key**2 + self.dy_key**2 <= self.radius**2)
-        else:
-            dx = self.x - max(key.x, min(self.x, key.x + key.size))
-            dy = self.y - max(key.y, min(self.y, key.y + key.size))
-            return (dx**2 + dy**2 <= self.radius**2)
+    def is_touching(self, key: Key) -> bool:
+        dx = self.x - max(key.x, min(self.x, key.x + key.size))
+        dy = self.y - max(key.y, min(self.y, key.y + key.size))
+        return (dx**2 + dy**2 <= self.radius**2)
 
     def animation(self, screen):
-        if (self.x + self.radius >= 0) or self.radius >= 0:
+        if self.is_animating and ((self.x + self.radius >= 0) or self.radius >= 0):
             self.x -= OBSTACLE_SPEED
             self.radius -= 1
             pg.draw.circle(screen, PLAYER_DEATH_COLOR,
                            (self.x, self.y), self.radius)
         else:
-            self.x = -self.radius
             self.is_animating = False
 
     def NN_update(self, obstacle: Obstacle, key: Key):
@@ -101,16 +106,19 @@ class Player():
         Updates player distances to ceiling and obstacles (AI player vision)
         """
         self.dx = obstacle.x - self.x
-        self.dx_key = self.x - max(key.x, min(self.x, key.x + key.size))
-        self.dy_key = self.y - max(key.y, min(self.y, key.y + key.size))
-
+        if not self.has_key:
+            self.dx_key = self.x - max(key.x, min(self.x, key.x + key.size))
+            self.dy_key = self.y - max(key.y, min(self.y, key.y + key.size))
+        else:
+            self.dx_key = 0
+            self.dy_key = 0
         # NOTE: Think more about the stuff below. Draw sketch
         if obstacle.category == 'bottom':
             self.dy_top = self.y - BASE_HEIGHT
             self.dy_bottom = obstacle.y - self.y
         else:
             self.dy_top = obstacle.y - self.y
-            self.dy_bottom = HEIGHT - self.y
+            self.dy_bottom = HEIGHT - BASE_HEIGHT - self.y
 
     def NN_jump(self):
         genes = [self.y,
@@ -158,7 +166,9 @@ class Player():
     def fitness(self):
         # Returns the normalized weighted sum of performance metrics
         # These include:
-        #   Score (essentially the normalized time alive)
+        #   Time alive (doesn't factor in FPS changes; normalization factor is an approximation)
+        #       Exact normalization doesn't matter; deviations can be absorbed by the weight
         #   Keys collected
         # Player that collects the key is awarded more points
-        return (FITNESS_WEIGHT_SCORE * self.score + FITNESS_WEIGHT_KEYSCORE * self.keyscore)
+        norm_factor = WIDTH / OBSTACLE_SPEED / GAME_FPS
+        return round((FITNESS_WEIGHT_ALIVE * self.time_alive / norm_factor + FITNESS_WEIGHT_KEYSCORE * self.keyscore), 3)

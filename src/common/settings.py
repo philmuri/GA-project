@@ -21,7 +21,7 @@ PLAYER_START_POS = 70
 PLAYER_START_HEIGHT = HEIGHT // 2
 PLAYER_RADIUS = 20
 # PLAYER_JUMP_COOLDOWN tied to GAME_FPS; actual cd is = PLAYER_JUMP_COOLDOWN when GAME_FPS = 60
-PLAYER_JUMP_COOLDOWN = 0.3
+PLAYER_JUMP_COOLDOWN = 0.25
 PLAYER_COLOR = (128, 128, 128)
 PLAYER_DEATH_COLOR = (255, 0, 0)
 
@@ -31,9 +31,9 @@ FONT_SIZE = 16
 FONT_TYPE = 'Calibri'
 
 # - Constants: AI -
-is_AI = False
+is_AI = True
 MAX_GENERATIONS = 100
-POPULATION_SIZE = 30
+POPULATION_SIZE = 5
 # - Mutation & Crossover -
 MUTATION_CHANCE = 0.5  # mutation probability per weight
 MUTATION_SIZE = 0.5  # value of 1 gives up to +-0.25 to weights
@@ -49,5 +49,5 @@ DECISION_THRESHOLD = 0.5
 LOSS_PENALTY = 1  # death/loss scaling relative to score points
 # Evaluation metrics:
 EM_KSUCCESS = 5  # last k generations for jump success rate evaluation
-FITNESS_WEIGHT_SCORE = 1  # fitness weight for passing obstacle
-FITNESS_WEIGHT_KEYSCORE = 10  # fitness weight for collecting key
+FITNESS_WEIGHT_ALIVE = 1  # fitness weight for time alive
+FITNESS_WEIGHT_KEYSCORE = 1  # fitness weight for collecting key

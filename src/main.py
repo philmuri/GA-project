@@ -30,6 +30,7 @@ info_text = {
     'Generation': 1,
     'Best Score': 0,
     'Best Time': 0,
+    'Fitness': 0,
     'FPS': game_fps,
     'Success Rate': Dict[str, float] | None,
     'k-Success Rate': Dict[str, float] | None
@@ -44,11 +45,13 @@ best_players = {
     'weights_input': [],
     'weights_hidden': [],
     'time_alive': [],
-    'highscore': []
+    'highscore': [],
+    'fitness': []
 }
 best_overall_time = 0
 best_overall_iw = None
 best_overall_hw = None
+best_overall_fitness = 0
 overall_highscore = 0
 overall_deaths = 0
 # player scores accessed via player_scores['scores'][player_idx][generation]
@@ -136,9 +139,7 @@ def render_score(screen, score: int) -> None:
 
 def render_info_text(screen, info: Dict) -> None:
     for n, (k, v) in enumerate(info.items()):
-        if k == 'Best Time':
-            text = font.render(f"{k}: {v:.2f}", True, c.FONT_INFO_COLOR)
-        elif k == 'Success Rate' and generation > 1:
+        if k == 'Success Rate' and generation > 1:
             text = font.render(
                 f"Average Success Rate: {100*v['mean']:.1f}% ± {100*v['std']:.1f}%", True, c.FONT_INFO_COLOR)
         elif k == 'k-Success Rate' and generation > 1:
@@ -268,7 +269,7 @@ while True:
                 for i, _ in enumerate(population):
                     _.update(obstacle=obstacle, key=key, fps=game_fps)
                     _.draw(screen)
-                    if _.x >= + obstacle.x + obstacle.width and not obstacle_flags[i]:
+                    if _.x >= obstacle.x + obstacle.width and not obstacle_flags[i]:
                         _.score += 1
                         obstacle_flags[i] = True
                     if _.score > gen_score:
@@ -284,9 +285,11 @@ while True:
             if c.is_AI:
                 for i, _ in enumerate(population):
                     # - Key Touch Event -
-                    if _.is_alive and not key.is_collected and _.is_touching(key):
+                    if _.is_alive and not _.has_key and _.is_touching(key):
                         key.is_collected = True
                         gate.is_open = True
+                        _.keyscore += 1
+                        _.has_key = True
                     # - Obstacle / Locked Gate Touch Event -
                     if _.is_alive and _.is_colliding(obstacle=obstacle, gate=gate):
                         _.kill()
@@ -305,15 +308,17 @@ while True:
                     else:
                         game_running = False
             else:
-                if user_player.is_touching(key):
+                if not user_player.has_key and user_player.is_touching(key):
                     key.is_collected = True
                     gate.is_open = True
-                if user_player.is_colliding(obstacle=obstacle, gate=gate):
+                    user_player.keyscore += 1
+                    user_player.has_key = True
+                if user_player.is_alive and user_player.is_colliding(obstacle=obstacle, gate=gate):
                     user_player.kill()
-                    if user_player.is_animating:
-                        pass
-                    else:
-                        game_paused = True
+                if not user_player.is_alive and not user_player.is_animating:
+                    # - Handle game restart for user player -
+                    reset(obstacle=obstacle, gate=gate,
+                          key=key, players=user_player)
 
             pg.display.flip()
 
@@ -321,10 +326,6 @@ while True:
         generation_clock += game_tick / 1000
 
     else:
-        # this is inefficient for large population, but since population would rarely be > 100 it is of limited concern
-        # the benefit of this is more clear code
-
-        # NOTE: This is kinda stupid, since dead_players is already sorted by time_alive
         population = sorted(population, key=lambda player: player.fitness())
 
         best_player = population[-1]
@@ -335,10 +336,12 @@ while True:
             copy.deepcopy(best_player.weights_hidden))
         best_players['time_alive'].append(best_player.time_alive)
         best_players['highscore'].append(max(gen_scores))
+        best_players['fitness'].append(best_player.fitness())
 
-        best_overall_index = best_players['time_alive'].index(
-            max(best_players['time_alive']))
-        best_overall_time = best_players['time_alive'][best_overall_index]
+        best_overall_fitness = max(best_players['fitness'])
+        best_overall_index = best_players['fitness'].index(
+            best_overall_fitness)
+        best_overall_time = max(best_players['time_alive'])
         best_overall_iw = best_players['weights_input'][best_overall_index]
         best_overall_hw = best_players['weights_hidden'][best_overall_index]
         overall_highscore = max(best_players['highscore'])
@@ -396,6 +399,8 @@ while True:
         gen_score = 0
         info_text['Generation'] = generation
         info_text['Best Time'] = best_overall_time
+        # NOTE: Later replace with get_fitness() which includes average \pm stdev, min, max
+        info_text['Fitness'] = best_overall_fitness
         info_text['Success Rate'] = get_success_metric(
             loss_penalty=c.LOSS_PENALTY)
         info_text['k-Success Rate'] = get_success_metric(

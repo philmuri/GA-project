@@ -22,16 +22,5 @@ class Key():
     def update(self, obstacle: Obstacle) -> None:
         if obstacle.is_outside():
             self.__init__()
-        self.x -= OBSTACLE_SPEED
-
-    def is_outside(self) -> bool:
-        if self.x + self.size <= 0:
-            return True
         else:
-            return False
-
-
-"""
-TBD:
-- Key durability? Requires x fraction of current players to pass
-"""
+            self.x -= OBSTACLE_SPEED
