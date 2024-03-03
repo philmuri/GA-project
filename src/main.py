@@ -52,7 +52,8 @@ overall_deaths = 0
 # player scores accessed via player_scores['scores'][player_idx][generation]
 player_scores = {
     'player_id': [0] * c.POPULATION_SIZE,
-    'scores': [[] for _ in range(c.POPULATION_SIZE)]
+    'scores': [[] for _ in range(c.POPULATION_SIZE)],
+    'deaths': [0] * c.POPULATION_SIZE
 }
 gen_score = 0
 gen_scores = []
@@ -142,7 +143,7 @@ def render_info_text(screen, info: Dict) -> None:
                     f"Success Rate (last {c.EM_KSUCCESS} gens): {100*v['mean']:.1f}% ± {100*v['std']:.1f}%", True, c.FONT_INFO_COLOR)
             else:
                 text = font.render(
-                    f"Success Rate (last {c.EM_KSUCCESS} gens): Awaiting data", True, c.FONT_INFO_COLOR)
+                    f"Success Rate (last {c.EM_KSUCCESS} gens): Awaiting data...", True, c.FONT_INFO_COLOR)
         else:
             text = font.render(f"{k}: {v}", True, c.FONT_INFO_COLOR)
         text_x = c.WIDTH - text.get_width() - 20
@@ -151,12 +152,13 @@ def render_info_text(screen, info: Dict) -> None:
         screen.blit(text, (text_x, y_offset))
 
 
-def get_success_metric(gen_length: int = generation - 1) -> Dict[str, float] | None:
+def get_success_metric(gen_length: int = generation - 1, loss_penalty: int = 1) -> Dict[str, float] | None:
     if generation >= gen_length:
         rates = []
         for _ in population:
-            rates.append(get_player_success(
-                player_id=id(_), gen_length=gen_length))
+            rates.append(get_player_success(player_id=id(_),
+                                            gen_length=gen_length,
+                                            loss_penalty=loss_penalty))
         result = {
             'mean': np.mean(rates),
             'min': min(rates),
@@ -166,22 +168,29 @@ def get_success_metric(gen_length: int = generation - 1) -> Dict[str, float] | N
         return result
 
 
-def get_player_success(player_id: int, gen_length: int = generation - 1) -> float | None:
+def get_player_success(player_id: int, gen_length: int = generation - 1, loss_penalty: int = 1) -> float | None:
     """Evaluation Metric: Player Jump Success Rate
     Computes the fractional obstacle jump success rate for a particular player across generations.
 
     Args:
         player_id (int): Unique memory address identifier of Player object.
         gen_length (int): Number of past generations to include for evaluating success rate.
+        loss_penalty (int): scaling factor for death/loss penalty. Default is 1, corresponding to
+            a player death being worth 1 score points / obstacle passings.
 
     Returns:
-        float | None: The obstacle jump success rate of the player.
+        float | None: The obstacle jump success rate of the player; an alternative performance
+        metric to the player time survived.
     """
     if generation >= gen_length:
         if player_id in player_scores['player_id']:
             idx = player_scores['player_id'].index(player_id)
             history = player_scores['scores'][idx][-gen_length:]
-            return 1 / (1 + (sum(history) / overall_deaths))
+            total = sum(history)
+            if total == 0:
+                return 0.0
+            else:
+                return 1 / (1 + ((loss_penalty * player_scores['deaths'][idx]) / sum(history)))
         else:
             print(f"Player ID {player_id} not found")
 
@@ -220,13 +229,13 @@ while True:
                     game_paused = not game_paused
                 if event.key == pg.K_SPACE:
                     user_player.jump(fps=game_fps)
-                if event.key == pg.K_e:
+                if event.key == pg.K_e:  # fps control
                     game_fps += 5
                     info_text['FPS'] = game_fps
                 if event.key == pg.K_q:
                     game_fps -= 5
                     info_text['FPS'] = game_fps
-                if event.key == pg.K_i:
+                if event.key == pg.K_i:  # toggle into
                     info_toggle = not info_toggle
 
         if not game_paused:
@@ -273,6 +282,7 @@ while True:
                         # normally not needed if order of players in population is not changed:
                         if id(_) in player_scores['player_id']:
                             player_scores['scores'][i].append(_.score)
+                            player_scores['deaths'][i] += 1
 
                 if len(dead_players) == c.POPULATION_SIZE:
                     if dead_players[-1].is_animating:  # last dead player
@@ -368,11 +378,16 @@ while True:
         gen_score = 0
         info_text['Generation'] = generation
         info_text['Best Time'] = best_overall_time
-        info_text['Success Rate'] = get_success_metric()
+        info_text['Success Rate'] = get_success_metric(
+            loss_penalty=c.LOSS_PENALTY)
         info_text['k-Success Rate'] = get_success_metric(
-            gen_length=c.EM_KSUCCESS)
+            gen_length=c.EM_KSUCCESS, loss_penalty=c.LOSS_PENALTY)
 
-        game_running = True
+        if generation < c.MAX_GENERATIONS:
+            game_running = True
+        else:
+            print(
+                f"Max generation of {c.MAX_GENERATIONS} exceeded; ending game.")
 
 
 """
