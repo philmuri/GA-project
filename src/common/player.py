@@ -4,6 +4,8 @@ import time
 import pygame as pg
 from src.common.settings import PLAYER_RADIUS, PLAYER_COLOR, PLAYER_DEATH_COLOR, PLAYER_START_HEIGHT, PLAYER_START_POS, JUMP_FORCE, HEIGHT, BASE_HEIGHT, GRAVITY, MUTATION_SIZE, OBSTACLE_SPEED, MUTATION_CHANCE, PLAYER_JUMP_COOLDOWN, GAME_FPS, DECISION_THRESHOLD
 from src.common.obstacle import Obstacle
+from src.common.gate import Gate
+from src.common.key import Key
 
 
 class Player():
@@ -25,8 +27,9 @@ class Player():
             self.dy_bottom = 0
             self.dy_top = 0
             self.dx = 0
-            self.weights_input = np.random.normal(0, scale=0.1, size=(5, 3))
-            self.weights_hidden = np.random.normal(0, scale=0.1, size=(3, 1))
+            self.dy_ground = 0
+            self.weights_input = np.random.normal(0, scale=0.1, size=(6, 4))
+            self.weights_hidden = np.random.normal(0, scale=0.1, size=(4, 1))
 
     def draw(self, screen) -> None:
         if self.is_alive:
@@ -56,17 +59,28 @@ class Player():
             self.vy = JUMP_FORCE
             self.jump_time = time.time()
 
-    def is_colliding(self, obstacle: Obstacle):
-        dx = PLAYER_START_POS - \
-            max(obstacle.x, min(PLAYER_START_POS, obstacle.x + obstacle.width))
-        if obstacle.category == 'bottom':
-            dy = self.y - \
-                max(obstacle.y, min(self.y, obstacle.y + obstacle.height))
+    def is_colliding(self, obstacle: Obstacle, gate: Gate):
+        if not gate.is_open:
+            dx = obstacle.x - self.x
+            dy = 0
+
         else:
-            dy = self.y - \
-                max(obstacle.y - obstacle.height, min(self.y, obstacle.y))
-        dist = dx**2 + dy**2
-        return (dist < self.radius**2) or (self.y - self.radius <= BASE_HEIGHT)
+            dx = self.x - \
+                max(obstacle.x, min(self.x, obstacle.x + obstacle.width))
+            if obstacle.category == 'bottom':
+                dy = self.y - \
+                    max(obstacle.y, min(self.y, obstacle.y + obstacle.height))
+            else:
+                dy = self.y - \
+                    max(obstacle.y - obstacle.height, min(self.y, obstacle.y))
+
+        return (dx**2 + dy**2 < self.radius**2) or (self.y - self.radius <= BASE_HEIGHT)
+
+    def is_touching(self, key: Key):
+        dx = self.x - \
+            max(key.x, min(self.x, key.x + key.size))
+        dy = self.y - max(key.y, min(self.y, key.y + key.size))
+        return (dx**2 + dy**2 <= self.radius**2)
 
     def animation(self, screen):
         if (self.x + self.radius >= 0) or self.radius >= 0:
@@ -83,6 +97,7 @@ class Player():
         Updates player distances to ceiling and obstacles (AI player vision)
         """
         self.dx = obstacle.x - self.x
+        self.dy_ground = HEIGHT - BASE_HEIGHT - self.y
         # NOTE: Think more about the stuff below. Draw sketch
         if obstacle.category == 'bottom':
             self.dy_top = self.y - BASE_HEIGHT
@@ -96,7 +111,8 @@ class Player():
                  self.vy,
                  self.dx,
                  self.dy_bottom,
-                 self.dy_top]
+                 self.dy_top,
+                 self.dy_ground]
         hidden_layer_in = np.dot(genes, self.weights_input)
         hidden_layer_out = self.sigmoid(hidden_layer_in)
         output_layer_in = np.dot(hidden_layer_out, self.weights_hidden)
@@ -114,7 +130,7 @@ class Player():
         self.is_animating = True
         self.time_alive = round(time.time() - self.init_time, 3)
 
-    def fitness(self):
+    def fitness(self):  # NOTE: unused
         return self.time_alive
 
     def mutate(self):

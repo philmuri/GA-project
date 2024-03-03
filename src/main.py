@@ -3,6 +3,8 @@ import numpy as np
 import src.common.settings as c
 from src.common.player import Player
 from src.common.obstacle import Obstacle
+from src.common.gate import Gate
+from src.common.key import Key
 from typing import Dict, List
 import sys
 import copy
@@ -72,8 +74,10 @@ def init() -> None:
             player_scores['player_id'][i] = id(population[i])
 
 
-def reset(obstacle: Obstacle, players: List[Player] | Player) -> None:
+def reset(obstacle: Obstacle, gate: Gate, key: Key, players: List[Player] | Player) -> None:
     obstacle.__init__()
+    gate.__init__(obstacle=obstacle)
+    key.__init__()
     if c.is_AI and isinstance(players, List):
         for _ in players:
             _.__init__(is_AI=c.is_AI)
@@ -214,6 +218,8 @@ def nested_mean(nested_list1, nested_list2):
 init()
 user_player = Player()
 obstacle = Obstacle()
+gate = Gate(obstacle=obstacle)
+key = Key()
 
 while True:
     if game_running:
@@ -250,10 +256,12 @@ while True:
             if gen_score > overall_highscore:
                 info_text['Best Score'] = gen_score
 
-            # - Update and Draw Players + Obstacle -
+            # - Update and Draw Objects -
             obstacle.update()
             if obstacle.is_outside():
                 obstacle_flags = [False] * c.POPULATION_SIZE
+            gate.update(obstacle=obstacle)
+            key.update(obstacle=obstacle)
 
             if c.is_AI:
                 display_overlaps(screen, population=population, min_overlaps=2)
@@ -269,11 +277,18 @@ while True:
                 user_player.update(obstacle, fps=game_fps)
                 user_player.draw(screen)
             obstacle.draw(screen)
+            gate.draw(screen)
+            key.draw(screen)
 
             # - Handle Collisions -
             if c.is_AI:
                 for i, _ in enumerate(population):
-                    if _.is_alive and _.is_colliding(obstacle):
+                    # - Key Touch Event -
+                    if _.is_alive and not key.is_collected and _.is_touching(key):
+                        key.is_collected = True
+                        gate.is_open = True
+                    # - Obstacle / Locked Gate Touch Event -
+                    if _.is_alive and _.is_colliding(obstacle=obstacle, gate=gate):
                         _.kill()
                         dead_players.append(_)
                         overall_deaths += 1
@@ -290,7 +305,7 @@ while True:
                     else:
                         game_running = False
             else:
-                if user_player.is_colliding(obstacle):
+                if user_player.is_colliding(obstacle=obstacle, gate=gate):
                     user_player.kill()
                     if user_player.is_animating:
                         pass
@@ -327,7 +342,7 @@ while True:
 
         # NOTE: With current implementation of reset(), it must be called
         # BEFORE assigning new weights to population
-        reset(obstacle=obstacle, players=population)
+        reset(obstacle=obstacle, gate=gate, key=key, players=population)
 
         # -- Crossover and Mutating --
         for i, _ in enumerate(population):
