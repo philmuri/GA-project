@@ -1,10 +1,10 @@
-# Obstacle Jumping with NN Genetic Algorithm
+# Evolutionary Neural Network for Obstacle Jump Training
 
 ## Introduction
 In this project I will incorporate a genetic algorithm made from scratch to train a player to jump over obstacles. This is done in a python framework using `pygame` for the game development part. The project will include a single-player mode where the user can play the game and compare their performance to the AI.
 
 ## Guide
-To run the game, navigate to the project folder and type:
+To run the game, simply navigate to the project folder and type:
 ```
 python -m src.main
 ```
@@ -34,9 +34,3 @@ Here I have summarized the steps involved in the training phase:
 4. **Repeat**: Replace old population with new by updating player weights
 
 **Note**: Mutations are achieved by randomly adjusting the learning rate (and randomly in positive or negative direction) before being added to the weights. Crossover is achieved by returning the averaged the weights of each partner. Cloning is achieved by copying the weights directly to the cloned player.
-
-## Neural network structure
-TBD
-
-## Current issues
-- Some Player class attributes are passed as arguments of type None - namely 'genes' and 'toughness'. This wouldn't be necessary if a proper reset() method is defined that re-initializes all attributes except the latter ones. My current implementation requires introducing new lists ('mutated_genes' and 'new_toughness'), which creates a bit of clutter that could be refactored.
